@@ -33,15 +33,16 @@ app.use(helmet({
 // ---------- CORS ----------
 const corsOptions = {
   origin: function (origin, callback) {
-    // This safely pulls the environment variable
-    const corsOrigins = process.env.CORS_ORIGINS || ""; 
-    const allowedOrigins = corsOrigins.split(',');
+    // We force the Vercel URL here as the primary authority
+    const allowedOrigins = [
+      "https://final-diamond-body-ecommerce-m3eu.vercel.app"
+    ];
     
-    // Allows requests with no origin (like mobile apps)
+    // Allow requests with no origin (like mobile apps or server-to-server)
     if (!origin) return callback(null, true);
     
-    // This checks both the list and the "*" wildcard safely
-    if (allowedOrigins.indexOf(origin) !== -1 || corsOrigins.includes("*")) {
+    // Check if the request origin matches our allowed list
+    if (allowedOrigins.indexOf(origin) !== -1 || process.env.CORS_ORIGINS === "*") {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
@@ -53,6 +54,7 @@ const corsOptions = {
   exposedHeaders: ["Content-Disposition"],
   maxAge: 86400
 };
+
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
 
