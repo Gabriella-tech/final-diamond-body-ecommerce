@@ -32,12 +32,19 @@ app.use(helmet({
 
 // ---------- CORS ----------
 const corsOptions = {
-  origin(origin, cb) {
-    // Allow tools like curl / server-to-server (no origin)
-    if (!origin) return cb(null, true);
-    const allowedOrigins = process.env.CORS_ORIGINS.split(',');
-    if (allowedOrigins.includes(origin) || env.CORS_ORIGINS.includes("*"))
-    return cb(null, true);
+  origin: function (origin, callback) {
+    // Get the allowed origins from the env variable and split them into array 
+    const allowedOrigins = process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : [];
+      
+    //Allow requests with no origin (like mobile apps)
+    if (!origin) return callback (null, true);
+
+    //check if the origin id in our allowed list
+    if (allowedOrigins.indexOf(origin) !== -1 || process.env.CORS_ORIGINS.includes("*")) {
+      callback (null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
   },
   credentials: true,
   methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
