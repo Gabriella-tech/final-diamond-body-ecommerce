@@ -1,0 +1,398 @@
+// ============================================================================
+// DIAMOND BODY — PRISMA SCHEMA
+// PostgreSQL data model for a wellness e-commerce platform with 8 Nations.
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// USERS & ROLES
+// ============================================================================
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  NATION_LEADER
+  MEMBER
+}
+
+enum UserStatus {
+  ACTIVE
+  PENDING       // member awaiting nation-leader approval
+  SUSPENDED
+  DISABLED
+}
+
+model User {
+  id                String     @id @default(uuid())
+  email             String     @unique
+  passwordHash      String
+  fullName          String
+  phone             String?
+  role              UserRole
+  status            UserStatus @default(ACTIVE)
+  emailVerified     Boolean    @default(false)
+
+  // A NATION_LEADER owns one nation (see Nation.leader relation)
+  ownedNation       Nation?    @relation("NationLeader")
+
+  // A MEMBER belongs to one nation
+  nationId          String?
+  nation            Nation?    @relation("NationMembers", fields: [nationId], references: [id], onDelete: SetNull)
+
+  // Approval trail (which leader approved this member)
+  approvedById      String?
+  approvedBy        User?      @relation("MemberApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedMembers   User[]     @relation("MemberApprover")
+
+  // Relations
+  addresses         Address[]
+  orders            Order[]
+  sessions          Session[]
+  resetTokens       PasswordResetToken[]
+  productsCreated   Product[]  @relation("ProductCreator")
+
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  @@index([role])
+  @@index([status])
+  @@index([nationId])
+}
+
+// ============================================================================
+// NATIONS — exactly 8, seeded and locked
+// ============================================================================
+
+enum NationStatus {
+  ACTIVE
+  DISABLED
+}
+
+model Nation {
+  id             String       @id @default(uuid())
+  code           String       @unique   // e.g. "NTN001"
+  slug           String       @unique   // e.g. "vision-nation"
+  name           String       @unique   // e.g. "Vision Nation"
+  description    String?
+  status         NationStatus @default(ACTIVE)
+
+  // Each nation has ONE leader (1:1)
+  leaderId       String?      @unique
+  leader         User?        @relation("NationLeader", fields: [leaderId], references: [id], onDelete: SetNull)
+
+  // Members belong to this nation
+  members        User[]       @relation("NationMembers")
+
+  // Orders placed by members of this nation
+  orders         Order[]
+
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([status])
+}
+
+// ============================================================================
+// ADDRESSES
+// ============================================================================
+
+model Address {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  label      String   @default("Home")
+  fullName   String
+  phone      String
+  street     String
+  city       String
+  state      String
+  country    String   @default("Nigeria")
+  isDefault  Boolean  @default(false)
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId])
+}
+
+// ============================================================================
+// PRODUCTS
+// ============================================================================
+
+model Category {
+  id        String    @id @default(uuid())
+  slug      String    @unique
+  name      String    @unique
+  icon      String?
+  products  Product[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Product {
+  id            String       @id @default(uuid())
+  slug          String       @unique
+  name          String
+  tagline       String?
+  description   String       @db.Text
+  benefits      String[]                   // array of strings
+  ingredients   String[]                   // array of strings
+  price         Decimal      @db.Decimal(12, 2)
+  comparePrice  Decimal?     @db.Decimal(12, 2)
+  inventory     Int          @default(0)
+  rating        Decimal      @default(0)   @db.Decimal(3, 2)
+  reviewsCount  Int          @default(0)
+  featured      Boolean      @default(false)
+  bestSeller    Boolean      @default(false)
+  badge         String?
+  image         String                     // main image URL
+  gallery       String[]                   // additional image URLs
+
+  categoryId    String?
+  category      Category?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  createdById   String?
+  createdBy     User?        @relation("ProductCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  orderItems    OrderItem[]
+
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([categoryId])
+  @@index([featured])
+  @@index([bestSeller])
+  @@index([isActive])
+}
+
+// ============================================================================
+// ORDERS
+// ============================================================================
+
+enum OrderStatus {
+  PENDING
+  AWAITING_PAYMENT
+  PAID
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  PAYSTACK
+  BANK_TRANSFER
+}
+
+enum PaymentStatus {
+  UNPAID
+  AWAITING_VERIFICATION
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum DeliveryMethod {
+  HOME_DELIVERY
+  PICKUP_STATION
+}
+
+model Order {
+  id                String         @id @default(uuid())
+  orderNumber       String         @unique              // e.g. DB-2026-0042
+
+  userId            String?
+  user              User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  // Guest fields (in case order is placed without account)
+  customerName      String
+  email             String
+  phone             String
+
+  // Nation attribution (from nation landing URL)
+  nationId          String?
+  nation            Nation?        @relation(fields: [nationId], references: [id], onDelete: SetNull)
+  nationName        String?
+  nationSlug        String?
+
+  // Optional free-text referral code
+  referralCode      String?
+
+  // Delivery
+  deliveryMethod    DeliveryMethod @default(HOME_DELIVERY)
+  shippingStreet    String?
+  shippingCity      String?
+  shippingState     String?
+  shippingCountry   String         @default("Nigeria")
+  pickupStationId   String?
+  pickupStation     PickupStation? @relation(fields: [pickupStationId], references: [id], onDelete: SetNull)
+  pickupStationName String?
+
+  // Money
+  subtotal          Decimal        @db.Decimal(12, 2)
+  shippingFee       Decimal        @default(0) @db.Decimal(12, 2)
+  discount          Decimal        @default(0) @db.Decimal(12, 2)
+  total             Decimal        @db.Decimal(12, 2)
+  promoCode         String?
+
+  // Payment
+  paymentMethod     PaymentMethod  @default(PAYSTACK)
+  paymentStatus     PaymentStatus  @default(UNPAID)
+  paystackReference String?
+
+  // Order lifecycle
+  status            OrderStatus    @default(PENDING)
+  trackingNumber    String?
+
+  // Notes (admin/leader)
+  adminNotes        String?
+
+  items             OrderItem[]
+  paymentProofs     PaymentProof[]
+
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@index([userId])
+  @@index([nationId])
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id         String   @id @default(uuid())
+  orderId    String
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId  String?
+  product    Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  name       String
+  price      Decimal  @db.Decimal(12, 2)
+  quantity   Int
+
+  createdAt  DateTime @default(now())
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+// ============================================================================
+// PICKUP STATIONS
+// ============================================================================
+
+enum PickupStationStatus {
+  ACTIVE
+  DISABLED
+}
+
+model PickupStation {
+  id        String              @id @default(uuid())
+  code      String              @unique          // e.g. "PKS001"
+  name      String
+  address   String
+  city      String
+  state     String
+  phone     String?
+  hours     String?
+  status    PickupStationStatus @default(ACTIVE)
+
+  orders    Order[]
+
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+
+  @@index([status])
+}
+
+// ============================================================================
+// PAYMENT PROOFS (Bank Transfer)
+// ============================================================================
+
+enum PaymentProofStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model PaymentProof {
+  id             String             @id @default(uuid())
+  orderId        String
+  order          Order              @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  fileUrl        String                                // public URL under /uploads/...
+  fileName       String
+  mimeType       String
+  fileSize       Int
+
+  status         PaymentProofStatus @default(PENDING)
+  rejectionReason String?
+
+  reviewedById   String?
+  reviewedAt     DateTime?
+
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@index([orderId])
+  @@index([status])
+}
+
+// ============================================================================
+// AUTHENTICATION SUPPORT
+// ============================================================================
+
+model Session {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  refreshTokenHash String  @unique
+  userAgent       String?
+  ipAddress       String?
+  revoked         Boolean  @default(false)
+
+  expiresAt       DateTime
+  createdAt       DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model PasswordResetToken {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  used       Boolean  @default(false)
+
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// ============================================================================
+// NEWSLETTER SUBSCRIBERS (bonus, referenced by frontend)
+// ============================================================================
+
+model Subscriber {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
