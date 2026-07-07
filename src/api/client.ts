@@ -3,7 +3,7 @@
 // All auth, orders, products, and reviews go through the backend API.
 // ============================================================================
 
-const API_BASE = (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_API_URL) || "https://the-diamond-body-backend.onrender.com/api/v1";
+const API_BASE = (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_API_URL) || "https://the-diamond-body-backend.onrender.com";
 
 type ApiResponse<T = unknown> = {
   success: boolean;
