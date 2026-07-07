@@ -33,16 +33,16 @@ app.use(helmet({
 // ---------- CORS ----------
 const corsOptions = {
   origin: function (origin, callback) {
-    // Get the allowed origins from the env variable and split them into array 
-    const allowedOrigins = process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : [];
-      
-    //Allow requests with no origin (like mobile apps)
-    if (!origin) return callback (null, true);
-
-    //check if the origin id in our allowed list
-    const corsOrigins = process.env.CORS_ORIGINS || "";
-    if (allowedOrigins.indexOf(origin) !== -1 || corOrigins.includes("*")) {
-      callback (null, true);
+    // This safely pulls the environment variable
+    const corsOrigins = process.env.CORS_ORIGINS || ""; 
+    const allowedOrigins = corsOrigins.split(',');
+    
+    // Allows requests with no origin (like mobile apps)
+    if (!origin) return callback(null, true);
+    
+    // This checks both the list and the "*" wildcard safely
+    if (allowedOrigins.indexOf(origin) !== -1 || corsOrigins.includes("*")) {
+      callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
     }
@@ -51,7 +51,7 @@ const corsOptions = {
   methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "Accept"],
   exposedHeaders: ["Content-Disposition"],
-  maxAge: 86400,
+  maxAge: 86400
 };
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
