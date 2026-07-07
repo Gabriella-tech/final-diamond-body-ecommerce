@@ -40,7 +40,8 @@ const corsOptions = {
     if (!origin) return callback (null, true);
 
     //check if the origin id in our allowed list
-    if (allowedOrigins.indexOf(origin) !== -1 || process.env.CORS_ORIGINS.includes("*")) {
+    const corsOrigins = process.env.CORS_ORIGINS || "";
+    if (allowedOrigins.indexOf(origin) !== -1 || corOrigins.includes("*")) {
       callback (null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
