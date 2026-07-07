@@ -35,7 +35,7 @@ const corsOptions = {
   origin(origin, cb) {
     // Allow tools like curl / server-to-server (no origin)
     if (!origin) return cb(null, true);
-    if (env.CORS_ORIGINS.includes(origin) || env.CORS_ORIGINS.includes("*")) {
+    if (env.CORS_ORIGINS.sspilt(',').includes(origin) || env.CORS_ORIGINS.includes("*")) {
       return cb(null, true);
     }
     return cb(new Error(`CORS: origin ${origin} not allowed`));
