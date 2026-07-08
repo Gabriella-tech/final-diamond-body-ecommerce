@@ -18,13 +18,13 @@ export type UserDto = { id: string; email: string; fullName: string; phone?: str
 
 export const authService = {
   login: (body: LoginPayload) => api.post<AuthResult>("/api/v1/auth/login", body),
-  register: (body: RegisterPayload) => api.post<{ user: UserDto }>("/auth/register", body),
-  refresh: (refreshToken: string) => api.post<{ accessToken: string; refreshToken: string }>("/auth/refresh", { refreshToken }),
-  logout: (refreshToken: string) => api.post("/auth/logout", { refreshToken }),
-  me: () => api.get<{ user: UserDto }>("/auth/me"),
-  changePassword: (currentPassword: string, newPassword: string) => api.post("/auth/change-password", { currentPassword, newPassword }),
-  forgotPassword: (email: string) => api.post("/auth/forgot-password", { email }),
-  resetPassword: (userId: string, token: string, newPassword: string) => api.post("/auth/reset-password", { userId, token, newPassword }),
+  register: (body: RegisterPayload) => api.post<{ user: UserDto }>("/api/v1/auth/register", body),
+  refresh: (refreshToken: string) => api.post<{ accessToken: string; refreshToken: string }>("/api/v1/auth/refresh", { refreshToken }),
+  logout: (refreshToken: string) => api.post("/api/v1/auth/logout", { refreshToken }),
+  me: () => api.get<{ user: UserDto }>("/api/v1/auth/me"),
+  changePassword: (currentPassword: string, newPassword: string) => api.post("/api/v1/auth/change-password", { currentPassword, newPassword }),
+  forgotPassword: (email: string) => api.post("/api/v1/auth/forgot-password", { email }),
+  resetPassword: (userId: string, token: string, newPassword: string) => api.post("/api/v1/auth/reset-password", { userId, token, newPassword }),
 };
 
 // ---------- Products ----------
@@ -32,25 +32,25 @@ export const authService = {
 export const productService = {
   list: (params?: Record<string, string>) => {
     const qs = params ? "?" + new URLSearchParams(params).toString() : "";
-    return api.get<{ items: Product[]; meta: { pagination: { total: number; page: number; limit: number; totalPages: number } } }>(`/products${qs}`);
+    return api.get<{ items: Product[]; meta: { pagination: { total: number; page: number; limit: number; totalPages: number } } }>(`/api/v1/products${qs}`);
   },
-  featured: () => api.get<Product[]>("/products/featured"),
-  bestSellers: () => api.get<Product[]>("/products/best-sellers"),
-  getBySlug: (slug: string) => api.get<Product>(`/products/${slug}`),
-  categories: () => api.get<{ id: string; slug: string; name: string; icon?: string; _count?: { products: number } }[]>("/products/categories"),
+  featured: () => api.get<Product[]>("/api/v1/products/featured"),
+  bestSellers: () => api.get<Product[]>("/api/v1/products/best-sellers"),
+  getBySlug: (slug: string) => api.get<Product>(`/api/v1/products/${slug}`),
+  categories: () => api.get<{ id: string; slug: string; name: string; icon?: string; _count?: { products: number } }[]>("/api/v1/products/categories"),
 };
 
 // ---------- Nations ----------
 
 export const nationService = {
-  list: () => api.get<Nation[]>("/nations"),
-  getBySlug: (slug: string) => api.get<Nation>(`/nations/slug/${slug}`),
+  list: () => api.get<Nation[]>("/api/v1/nations"),
+  getBySlug: (slug: string) => api.get<Nation>(`/api/v1/nations/slug/${slug}`),
 };
 
 // ---------- Pickup Stations ----------
 
 export const pickupStationService = {
-  list: () => api.get<PickupStation[]>("/pickup-stations"),
+  list: () => api.get<PickupStation[]>("/api/v1/pickup-stations"),
 };
 
 // ---------- Orders ----------
@@ -66,36 +66,36 @@ export type CreateOrderPayload = {
 };
 
 export const orderService = {
-  create: (body: CreateOrderPayload) => api.post<Record<string, unknown>>("/orders", body),
+  create: (body: CreateOrderPayload) => api.post<Record<string, unknown>>("/api/v1/orders", body),
   uploadProof: (orderId: string, file: File) => {
     const fd = new FormData();
     fd.append("proof", file);
-    return api.upload(`/orders/${orderId}/payment-proof`, fd);
+    return api.upload(`/api/v1/orders/${orderId}/payment-proof`, fd);
   },
-  myOrders: (page = 1, limit = 10) => api.get(`/members/me/orders?page=${page}&limit=${limit}`),
-  myOrderDetail: (id: string) => api.get(`/members/me/orders/${id}`),
+  myOrders: (page = 1, limit = 10) => api.get(`/api/v1/members/me/orders?page=${page}&limit=${limit}`),
+  myOrderDetail: (id: string) => api.get(`/api/v1/members/me/orders/${id}`),
 };
 
 // ---------- Admin ----------
 
 export const adminService = {
-  dashboard: () => api.get("/admin/dashboard"),
+  dashboard: () => api.get("/api/v1/admin/dashboard"),
   orders: (params?: Record<string, string>) => {
     const qs = params ? "?" + new URLSearchParams(params).toString() : "";
-    return api.get(`/admin/orders${qs}`);
+    return api.get(`/api/v1/admin/orders${qs}`);
   },
-  updateOrderStatus: (id: string, body: { status?: string; trackingNumber?: string }) => api.patch(`/admin/orders/${id}/status`, body),
-  reviewProof: (id: string, action: "APPROVE" | "REJECT", rejectionReason?: string) => api.patch(`/admin/payment-proofs/${id}`, { action, rejectionReason }),
-  nations: () => api.get("/admin/nations"),
-  updateNation: (id: string, body: Record<string, unknown>) => api.patch(`/admin/nations/${id}`, body),
-  leaders: () => api.get("/admin/leaders"),
-  createLeader: (body: Record<string, unknown>) => api.post("/admin/leaders", body),
-  updateLeader: (id: string, body: Record<string, unknown>) => api.patch(`/admin/leaders/${id}`, body),
-  setLeaderStatus: (id: string, status: string) => api.patch(`/admin/leaders/${id}/status`, { status }),
-  resetLeaderPassword: (id: string, newPassword?: string) => api.post(`/admin/leaders/${id}/reset-password`, { newPassword }),
-  deleteLeader: (id: string) => api.delete(`/admin/leaders/${id}`),
-  pickupStations: () => api.get("/admin/pickup-stations"),
-  createPickupStation: (body: Record<string, unknown>) => api.post("/admin/pickup-stations", body),
-  updatePickupStation: (id: string, body: Record<string, unknown>) => api.patch(`/admin/pickup-stations/${id}`, body),
-  deletePickupStation: (id: string) => api.delete(`/admin/pickup-stations/${id}`),
+  updateOrderStatus: (id: string, body: { status?: string; trackingNumber?: string }) => api.patch(`/api/v1/admin/orders/${id}/status`, body),
+  reviewProof: (id: string, action: "APPROVE" | "REJECT", rejectionReason?: string) => api.patch(`/api/v1/admin/payment-proofs/${id}`, { action, rejectionReason }),
+  nations: () => api.get("/api/v1/admin/nations"),
+  updateNation: (id: string, body: Record<string, unknown>) => api.patch(`/api/v1/admin/nations/${id}`, body),
+  leaders: () => api.get("/api/v1/admin/leaders"),
+  createLeader: (body: Record<string, unknown>) => api.post("/api/v1/admin/leaders", body),
+  updateLeader: (id: string, body: Record<string, unknown>) => api.patch(`/api/v1/admin/leaders/${id}`, body),
+  setLeaderStatus: (id: string, status: string) => api.patch(`/api/v1/admin/leaders/${id}/status`, { status }),
+  resetLeaderPassword: (id: string, newPassword?: string) => api.post(`/api/v1/admin/leaders/${id}/reset-password`, { newPassword }),
+  deleteLeader: (id: string) => api.delete(`/api/v1/admin/leaders/${id}`),
+  pickupStations: () => api.get("/api/v1/admin/pickup-stations"),
+  createPickupStation: (body: Record<string, unknown>) => api.post("/api/v1/admin/pickup-stations", body),
+  updatePickupStation: (id: string, body: Record<string, unknown>) => api.patch(`/api/v1/admin/pickup-stations/${id}`, body),
+  deletePickupStation: (id: string) => api.delete(`/api/v1/admin/pickup-stations/${id}`),
 };
