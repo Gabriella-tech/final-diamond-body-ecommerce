@@ -33,10 +33,14 @@ app.use(helmet({
 // ---------- CORS ----------
 const corsOptions = {
   origin: function (origin, callback) {
-    // We force the Vercel URL here as the primary authority
+    // 1. Get the allowed origins from the environment variable (or fallback to empty list)
+    const envOrigins = process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : [];
+    
+    // 2. Combine with production domains
     const allowedOrigins = [
-      "htpps://www.thediamondbody.com",
-      "htpps://thediamondbody.com"     
+      ...envOrigins,
+      "https://www.thediamondbody.com",
+      "https://thediamondbody.com"
     ];
     
     // Allow requests with no origin (like mobile apps or server-to-server)
