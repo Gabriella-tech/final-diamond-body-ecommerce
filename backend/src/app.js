@@ -35,7 +35,8 @@ const corsOptions = {
   origin: function (origin, callback) {
     // We force the Vercel URL here as the primary authority
     const allowedOrigins = [
-      "https://final-diamond-body-ecommerce-m3eu.vercel.app"
+      "htpps://www.thediamondbody.com",
+      "htpps://thediamondbody.com"     
     ];
     
     // Allow requests with no origin (like mobile apps or server-to-server)
