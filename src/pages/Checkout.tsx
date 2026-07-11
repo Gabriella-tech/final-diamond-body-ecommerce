@@ -75,7 +75,7 @@ export function Checkout() {
     }
     const nation = getActiveNation();
 
-    // —— Try the backend first ——
+    let backendOk = false;
     try {
       const { orderService } = await import("../api/services");
       await orderService.create({
@@ -95,16 +95,13 @@ export function Checkout() {
         paymentMethod: "BANK_TRANSFER",
         items: cart.map((c) => ({ productId: c.productId, quantity: c.quantity })),
       });
-      clearCart();
-      setSubmitted(true);
-      toast({ type: "success", message: "Order placed! You'll receive a confirmation email." });
-      setTimeout(() => navigate(`/dashboard/user?tab=orders`), 1500);
-      return;
+      backendOk = true;
     } catch {
-      // —— Offline fallback ——
+      backendOk = false;
     }
 
-    const id = "DB-2026-" + String(Math.floor(1000 + Math.random() * 9000));
+    // Build order object (from backend response or fallback)
+    const id = "DB-" + new Date().getFullYear() + "-" + String(Math.floor(1000 + Math.random() * 9000));
     const order: Order = {
       id, date: new Date().toISOString(),
       userId: user?.id || "guest-" + Math.random().toString(36).slice(2, 8),
@@ -125,11 +122,18 @@ export function Checkout() {
       referralCode: referralCode.trim() || undefined,
       deliveryMethod, pickupStationId: pickupStation?.id, pickupStationName: pickupStation?.name,
     };
+
+    // ALWAYS save the order locally so it survives refreshes
     addOrder(order);
     clearCart();
     setSubmitted(true);
-    toast({ type: "success", message: "Order placed (offline mode)!" });
-    setTimeout(() => navigate(`/dashboard/user?tab=orders`), 1500);
+
+    if (backendOk) {
+      toast({ type: "success", message: "Order placed! Saved to database." });
+    } else {
+      toast({ type: "success", message: "Order placed! It will sync to the database when the server is reachable." });
+    }
+    setTimeout(() => navigate(`/dashboard/user?tab=orders`), 1800);
   };
 
   if (cart.length === 0 && !submitted) {
