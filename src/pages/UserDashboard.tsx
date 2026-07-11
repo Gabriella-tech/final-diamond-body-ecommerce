@@ -1,11 +1,10 @@
 import { useState } from "react";
 import { Container, Button, Badge } from "../components/UI";
-import { useApp, formatNGN, type Order, } from "../store/store";
+import { useApp, formatNGN } from "../store/store";
 import { PRODUCTS } from "../data/products";
 import { parseRoute, useRouter, Link } from "../router";
 import { IconLogout, IconUpload, IconTruck, IconHeart, IconUser, IconMapPin } from "../components/Icons";
 import { clearTokens } from "../api/client";
-import { orderService } from "../api/services";
 
 type Tab = "overview" | "orders" | "wishlist" | "addresses" | "profile";
 
@@ -54,8 +53,8 @@ export function UserDashboard() {
               <p className="text-white/80 text-sm mt-1">{user.email}</p>
             </div>
             <button
-              onClick={() => { clearTokens(); navigate("/"); setUser(null); toast({ type: "info", message: "Signed out" }); }}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-full text-sm font-semibold"
+              onClick={() => { clearTokens(); navigate("/"); setTimeout(() => { setUser(null); toast({ type: "info", message: "Signed out" }); }, 0); }}
+              className="self-start sm:self-auto inline-flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-full text-sm font-semibold"
             >
               <IconLogout size={16}/> Sign out
             </button>
@@ -63,7 +62,7 @@ export function UserDashboard() {
         </div>
 
         <div className="grid lg:grid-cols-[240px_1fr] gap-6">
-          <aside className="h-fit">
+          <aside>
             <nav className="bg-white rounded-2xl border border-gray-100 p-2">
               {tabs.map((t) => (
                 <button
@@ -86,6 +85,7 @@ export function UserDashboard() {
                 <div className="sm:col-span-3 bg-white rounded-2xl p-6 border border-gray-100">
                   <h3 className="font-display text-xl font-bold mb-4">Recent Orders</h3>
                   {myOrders.slice(0, 3).map((o) => <OrderRow key={o.id} order={o}/>)}
+                  {myOrders.length === 0 && <p className="text-gray-500 text-sm">No orders yet. <Link to="/shop" className="text-[#4A0E16] font-semibold">Start shopping →</Link></p>}
                 </div>
               </div>
             )}
@@ -94,17 +94,20 @@ export function UserDashboard() {
               <div className="bg-white rounded-2xl p-6 border border-gray-100">
                 <h3 className="font-display text-xl font-bold mb-4">My Orders</h3>
                 <div className="space-y-3">
-                  {myOrders.map((o) => (
-                    <OrderRow key={o.id} order={o} expandable onUploadProof={async (file) => {
-                      try {
-                        await orderService.uploadProof(o.id, file);
-                        updateOrder(o.id, { paymentStatus: "Awaiting Verification" });
-                        toast({ type: "success", message: "Proof uploaded successfully" });
-                      } catch {
-                        toast({ type: "error", message: "Upload failed" });
-                      }
-                    }}/>
-                  ))}
+                  {myOrders.length === 0 ? (
+                    <p className="text-gray-500 text-sm">You haven't placed any orders yet.</p>
+                  ) : (
+                    myOrders.map((o) => (
+                      <OrderRow key={o.id} order={o} expandable onUploadProof={(file) => {
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                          updateOrder(o.id, { bankProofUrl: reader.result as string, paymentStatus: "Awaiting Verification" });
+                          toast({ type: "success", message: "Proof uploaded for verification" });
+                        };
+                        reader.readAsDataURL(file);
+                      }}/>
+                    ))
+                  )}
                 </div>
               </div>
             )}
@@ -112,31 +115,76 @@ export function UserDashboard() {
             {tab === "wishlist" && (
               <div className="bg-white rounded-2xl p-6 border border-gray-100">
                 <h3 className="font-display text-xl font-bold mb-4">My Wishlist</h3>
-                {myWishlist.map((p) => (
-                  <div key={p.id} className="flex items-center gap-4 py-3 border-b">
-                    <img src={p.image} className="w-16 h-16 object-cover rounded-lg" alt={p.name}/>
-                    <div className="flex-1 font-semibold">{p.name}</div>
-                    <Button variant="outline" size="sm" onClick={() => toggleWishlist(p.id)}>Remove</Button>
+                {myWishlist.length === 0 ? (
+                  <p className="text-gray-500 text-sm">Your wishlist is empty.</p>
+                ) : (
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {myWishlist.map((p) => (
+                      <div key={p.id} className="border border-gray-100 rounded-xl p-3">
+                        <Link to={`/product/${p.slug}`}>
+                          <img src={p.image} className="w-full aspect-square object-cover rounded-lg bg-[#F5F5F5]"/>
+                          <div className="font-semibold mt-2 text-sm">{p.name}</div>
+                        </Link>
+                        <div className="flex justify-between items-center mt-2">
+                          <div className="text-[#4A0E16] font-bold text-sm">{formatNGN(p.price)}</div>
+                          <button onClick={() => toggleWishlist(p.id)} className="text-xs text-gray-500 hover:text-red-600">Remove</button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                )}
               </div>
             )}
 
             {tab === "addresses" && (
               <div className="bg-white rounded-2xl p-6 border border-gray-100">
                 <h3 className="font-display text-xl font-bold mb-4">Saved Addresses</h3>
-                <IconMapPin size={48} className="text-gray-300 mx-auto mt-10"/>
-                <p className="text-center text-gray-500 mt-4">Manage your shipping addresses here.</p>
+                {user.addresses.length === 0 ? (
+                  <div className="text-center py-12">
+                    <IconMapPin size={36} className="mx-auto text-gray-300 mb-3"/>
+                    <p className="text-gray-500 text-sm mb-4">No saved addresses yet.</p>
+                    <Button onClick={() => {
+                      const addr = { id: "a-" + Math.random().toString(36).slice(2, 6), label: "Home", fullName: user.name, phone: user.phone || "", street: "Add your street", city: "Lagos", state: "Lagos", country: "Nigeria", isDefault: true };
+                      setUser({ ...user, addresses: [addr] });
+                      toast({ type: "success", message: "Sample address added — edit it from your profile" });
+                    }}>Add Address</Button>
+                  </div>
+                ) : (
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    {user.addresses.map((a) => (
+                      <div key={a.id} className="border border-gray-100 rounded-xl p-4">
+                        <div className="font-semibold">{a.label}</div>
+                        <div className="text-sm text-gray-600 mt-1">{a.fullName}</div>
+                        <div className="text-sm text-gray-600">{a.street}, {a.city}, {a.state}</div>
+                        <div className="text-sm text-gray-600">{a.phone}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
             {tab === "profile" && (
-              <div className="bg-white rounded-2xl p-6 border border-gray-100">
+              <div className="bg-white rounded-2xl p-6 border border-gray-100 max-w-2xl">
                 <h3 className="font-display text-xl font-bold mb-4">Profile Settings</h3>
-                <p className="text-gray-600">Update your account details below.</p>
-                <div className="mt-4 p-4 bg-[#F5F5F5] rounded-xl">
-                  <p><strong>Name:</strong> {user.name}</p>
-                  <p><strong>Email:</strong> {user.email}</p>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <ProfileField label="Name" value={user.name} onChange={(v) => setUser({...user, name: v})}/>
+                  <ProfileField label="Email" value={user.email} onChange={(v) => setUser({...user, email: v})}/>
+                  <ProfileField label="Phone" value={user.phone || ""} onChange={(v) => setUser({...user, phone: v})}/>
+                  <div>
+                    <span className="block text-xs font-semibold text-gray-700 mb-1">Role</span>
+                    <div className="px-4 py-2.5 bg-[#F5F5F5] rounded-xl text-sm capitalize">{user.role.replace("_", " ")}</div>
+                  </div>
+                </div>
+                <Button className="mt-6" onClick={() => toast({ type: "success", message: "Profile updated" })}>Save Changes</Button>
+
+                <div className="border-t border-gray-100 mt-8 pt-6">
+                  <h4 className="font-semibold mb-3">Change Password</h4>
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <input type="password" placeholder="Current password" className="px-4 py-2.5 rounded-xl border border-gray-200 text-sm"/>
+                    <input type="password" placeholder="New password" className="px-4 py-2.5 rounded-xl border border-gray-200 text-sm"/>
+                  </div>
+                  <Button variant="outline" className="mt-4" onClick={() => toast({ type: "success", message: "Password updated" })}>Update Password</Button>
                 </div>
               </div>
             )}
@@ -159,27 +207,53 @@ function StatCard({ label, value, icon }: { label: string; value: React.ReactNod
   );
 }
 
-function OrderRow({ order, expandable, onUploadProof }: { order: Order; expandable?: boolean; onUploadProof?: (f: File) => void }) {
+function ProfileField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <label className="block">
+      <span className="block text-xs font-semibold text-gray-700 mb-1">{label}</span>
+      <input value={value} onChange={(e) => onChange(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:border-[#4A0E16] text-sm"/>
+    </label>
+  );
+}
+
+function OrderRow({ order, expandable, onUploadProof }: { order: any; expandable?: boolean; onUploadProof?: (f: File) => void }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="border-b border-gray-100 py-3">
-      <div className={`flex justify-between items-center ${expandable ? "cursor-pointer" : ""}`} onClick={() => expandable && setOpen(!open)}>
-        <div>
+    <div className="border-b border-gray-100 last:border-0 py-3">
+      <div className={`flex flex-col sm:flex-row sm:items-center gap-3 ${expandable ? "cursor-pointer" : ""}`} onClick={() => expandable && setOpen(!open)}>
+        <div className="flex-1">
           <div className="font-semibold text-sm">{order.id}</div>
-          <div className="text-xs text-gray-500">{new Date(order.date).toLocaleDateString()}</div>
+          <div className="text-xs text-gray-500">{new Date(order.date).toLocaleString()} • {order.items.length} item(s)</div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Badge tone={statusTone(order.paymentStatus)}>{order.paymentStatus}</Badge>
           <Badge tone={statusTone(order.status)}>{order.status}</Badge>
+          <div className="font-bold text-[#4A0E16]">{formatNGN(order.total)}</div>
         </div>
       </div>
       {expandable && open && (
-        <div className="mt-3 p-4 bg-[#F5F5F5] rounded-xl text-sm">
-          {order.paymentMethod === "Bank Transfer" && order.paymentStatus === "Unpaid" && (
-            <label className="block p-4 border-2 border-dashed rounded-xl text-center cursor-pointer">
-              <IconUpload size={16}/> <span>Upload Proof</span>
-              <input type="file" className="hidden" onChange={(e) => e.target.files?.[0] && onUploadProof?.(e.target.files[0])}/>
+        <div className="mt-3 p-4 bg-[#F5F5F5] rounded-xl space-y-2">
+          {order.items.map((it: any, i: number) => (
+            <div key={i} className="flex justify-between text-sm">
+              <span>{it.name} × {it.quantity}</span>
+              <span className="font-semibold">{formatNGN(it.price * it.quantity)}</span>
+            </div>
+          ))}
+          <div className="text-xs text-gray-600 pt-2 border-t border-gray-200">
+            <strong>Ship to:</strong> {order.address.street}, {order.address.city}, {order.address.state}
+          </div>
+          {order.paymentMethod === "Bank Transfer" && order.paymentStatus !== "Paid" && (
+            <label className="block mt-3 cursor-pointer border-2 border-dashed border-[#4A0E16] rounded-xl p-3 hover:bg-white transition text-center">
+              <IconUpload size={18} className="inline mr-2"/>
+              <span className="text-sm font-semibold text-[#4A0E16]">Upload Payment Proof</span>
+              <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f && onUploadProof) onUploadProof(f);
+              }}/>
             </label>
+          )}
+          {order.trackingNumber && (
+            <div className="text-sm bg-white p-2 rounded-lg"><strong>Tracking:</strong> {order.trackingNumber}</div>
           )}
         </div>
       )}
