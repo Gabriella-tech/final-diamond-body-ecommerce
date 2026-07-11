@@ -2,6 +2,7 @@ import { createContext, useContext } from "react";
 import type { Product } from "../data/products";
 import type { Nation } from "../data/nations";
 import type { PickupStation } from "../data/pickupStations";
+import type { Review } from "../data/products";
 
 export type Role = "customer" | "nation" | "admin" | "super_admin";
 
@@ -13,8 +14,8 @@ export type User = {
   role: Role;
   emailVerified: boolean;
   addresses: Address[];
-  nationId?: string;          // for "nation" role: their own NTN id
-  referralCode?: string;      // optional, saved with customer if they used one
+  nationId?: string;
+  referralCode?: string;
 };
 
 export type Address = {
@@ -56,7 +57,7 @@ export type Order = {
   customerName: string;
   email: string;
   phone: string;
-  address: Address;                       // for Home Delivery
+  address: Address;
   items: { productId: string; name: string; price: number; quantity: number }[];
   total: number;
   shippingFee: number;
@@ -65,15 +66,12 @@ export type Order = {
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
   paystackReference?: string;
-  bankProofUrl?: string;
+  bankProofUrl?: string; // Used for Bank Transfer proof
   status: OrderStatus;
-  // Nation tracking (auto from URL)
   nationId?: string;
   nationName?: string;
   nationSlug?: string;
-  // Optional free-text referral code
   referralCode?: string;
-  // Delivery
   deliveryMethod: DeliveryMethod;
   pickupStationId?: string;
   pickupStationName?: string;
@@ -86,8 +84,6 @@ export type Toast = {
   message: string;
 };
 
-import type { Review } from "../data/products";
-
 export type AppState = {
   user: User | null;
   cart: CartItem[];
@@ -98,7 +94,7 @@ export type AppState = {
   subscribers: string[];
   toasts: Toast[];
   reviews: Review[];
-  // mutators
+  // Mutators
   setUser: (u: User | null) => void;
   addToCart: (productId: string, quantity?: number) => void;
   removeFromCart: (productId: string) => void;
@@ -107,7 +103,7 @@ export type AppState = {
   toggleWishlist: (productId: string) => void;
   addOrder: (order: Order) => void;
   updateOrder: (id: string, patch: Partial<Order>) => void;
-  // Pickup stations
+  // Pickup stations management
   addPickupStation: (p: PickupStation) => void;
   updatePickupStation: (id: string, patch: Partial<PickupStation>) => void;
   deletePickupStation: (id: string) => void;
