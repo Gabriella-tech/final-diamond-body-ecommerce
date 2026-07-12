@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Container, Button, Badge } from "../components/UI";
 import { useApp, formatNGN } from "../store/store";
 import { PRODUCTS } from "../data/products";
@@ -17,10 +17,13 @@ const statusTone = (s: string): "success" | "warning" | "info" | "default" | "er
 };
 
 export function UserDashboard() {
-  const { user, setUser, orders, wishlist, toggleWishlist, updateOrder, toast } = useApp();
+  const { user, setUser, orders, wishlist, toggleWishlist, updateOrder, toast, refreshOrders } = useApp();
   const { path, navigate } = useRouter();
   const { params } = parseRoute(path);
   const [tab, setTab] = useState<Tab>((params.get("tab") as Tab) || "overview");
+
+  // Sync orders from backend on mount — so customer sees orders from any device
+  useEffect(() => { refreshOrders(); }, []);
 
   if (!user) {
     return (

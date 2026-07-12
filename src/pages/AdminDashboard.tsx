@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Container, Button, Badge } from "../components/UI";
 import { useApp, formatNGN, type Order, type OrderStatus, type PaymentStatus } from "../store/store";
 import { PRODUCTS } from "../data/products";
@@ -14,10 +14,14 @@ type Tab = "overview" | "orders" | "nations" | "pickup" | "products" | "subscrib
 
 export function AdminDashboard({ superAdmin = false }: { superAdmin?: boolean }) {
   const {
-    user, setUser, orders, nations, pickupStations, subscribers,
+    user, setUser, orders, nations, pickupStations, subscribers, refreshOrders,
     updateOrder, addPickupStation, updatePickupStation, deletePickupStation, toast,
   } = useApp();
   const { navigate } = useRouter();
+
+  // Sync orders from backend on every mount (pulls orders from all devices)
+  useEffect(() => { refreshOrders(); }, []);
+
   const [tab, setTab] = useState<Tab>("overview");
   const [exportScope, setExportScope] = useState<ExportScope>("all");
   const [startDate, setStartDate] = useState("");
@@ -354,9 +358,9 @@ export function AdminDashboard({ superAdmin = false }: { superAdmin?: boolean })
                   <p className="text-xs text-gray-500 mb-4">These appear on the checkout page for bank transfer payments.</p>
                   <div className="space-y-3">
                     {[
-                      ["Bank Name", "Guaranty Trust Bank (GTBank)"],
-                      ["Account Name", "Diamond Body Wellness Ltd"],
-                      ["Account Number", "0123456789"],
+                      ["Bank Name", "Zennith Bank"],
+                      ["Account Name", "Sell Masters Limited"],
+                      ["Account Number", "1311356402"],
                       ["Reference", "Use your Order ID as payment reference"],
                     ].map(([k, v]) => (
                       <div key={k} className="grid grid-cols-[180px_1fr] gap-3 items-center">

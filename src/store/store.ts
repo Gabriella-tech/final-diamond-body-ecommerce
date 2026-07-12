@@ -11,7 +11,7 @@ export type User = {
   email: string;
   phone?: string;
   role: Role;
-  emailVerified: boolean;
+  emailVerified: boolean; 
   addresses: Address[];
   nationId?: string;          // for "nation" role: their own NTN id
   referralCode?: string;      // optional, saved with customer if they used one
@@ -117,6 +117,7 @@ export type AppState = {
   dismissToast: (id: string) => void;
   addReview: (r: Review) => void;
   deleteReview: (id: string) => void;
+  refreshOrders: () => Promise<void>;
 };
 
 export const AppCtx = createContext<AppState | null>(null);

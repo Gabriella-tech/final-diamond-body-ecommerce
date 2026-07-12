@@ -134,6 +134,46 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
   const deleteReview = useCallback((id: string) => setReviews((c) => c.filter((r) => r.id !== id)), []);
 
+  // ---------- Fetch orders from backend (syncs across devices) ----------
+  const refreshOrders = useCallback(async () => {
+    try {
+      const base = (await import("../api/client")).api.baseUrl;
+      if (!base) return;
+      const tok = localStorage.getItem("db_access_token");
+      const headers: Record<string, string> = {};
+      if (tok) headers["Authorization"] = `Bearer ${tok}`;
+      const res = await fetch(`${base}/admin/orders?limit=200`, { headers });
+      if (res.ok) {
+        const json = await res.json();
+        const backendOrders: Order[] = (json.data?.items || []).map((o: any) => ({
+          id: o.id, date: o.createdAt, orderNumber: o.orderNumber,
+          userId: o.userId || "", customerName: o.customerName, email: o.email, phone: o.phone,
+          address: { id: "", label: "Shipping", fullName: o.customerName, phone: o.phone, street: o.shippingStreet || "", city: o.shippingCity || "", state: o.shippingState || "", country: o.shippingCountry || "Nigeria" },
+          items: (o.items || []).map((it: any) => ({ productId: it.productId || "", name: it.name, price: Number(it.price), quantity: it.quantity })),
+          total: Number(o.total), shippingFee: Number(o.shippingFee || 0), discount: Number(o.discount || 0),
+          promoCode: o.promoCode || undefined, paymentMethod: o.paymentMethod === "BANK_TRANSFER" ? "Bank Transfer" : "Paystack",
+          paymentStatus: o.paymentStatus === "AWAITING_VERIFICATION" ? "Awaiting Verification" : o.paymentStatus === "PAID" ? "Paid" : o.paymentStatus === "UNPAID" ? "Unpaid" : "Unpaid",
+          paystackReference: o.paystackReference || undefined,
+          bankProofUrl: o.paymentProofs?.[0]?.fileUrl || undefined,
+          status: o.status === "AWAITING_PAYMENT" ? "Awaiting Payment" : o.status === "PROCESSING" ? "Processing" : o.status === "SHIPPED" ? "Shipped" : o.status === "DELIVERED" ? "Delivered" : o.status,
+          nationId: o.nationId || undefined, nationName: o.nationName || undefined, nationSlug: o.nationSlug || undefined,
+          referralCode: o.referralCode || undefined,
+          deliveryMethod: o.deliveryMethod === "PICKUP_STATION" ? "Pickup Station" : "Home Delivery",
+          pickupStationId: o.pickupStationId || undefined, pickupStationName: o.pickupStationName || undefined,
+          trackingNumber: o.trackingNumber || undefined,
+        }));
+        // Merge: backend orders + local orders, deduped by id
+        setOrders((cur) => {
+          const existingIds = new Set(cur.map((o) => o.id));
+          const newOnes = backendOrders.filter((o: Order) => !existingIds.has(o.id));
+          return [...newOnes, ...cur];
+        });
+        return backendOrders.length;
+      }
+    } catch { /* backend unreachable */ }
+    return 0;
+  }, []);
+
   // ---------- Subscribers ----------
   const subscribe = useCallback((email: string) => {
     setSubscribers((c) => (c.includes(email) ? c : [...c, email]));
@@ -158,7 +198,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setUser: handleSetUser, addToCart, removeFromCart, updateCartQty, clearCart, toggleWishlist,
     addOrder, updateOrder, addPickupStation, updatePickupStation, deletePickupStation,
     subscribe, toast, dismissToast,
-    addReview, deleteReview,
+    addReview, deleteReview, refreshOrders: refreshOrders as () => Promise<void>,
   };
 
   // Don't render until the initial session check completes (prevents flash)

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Container, Button, Badge } from "../components/UI";
 import { useApp, formatNGN } from "../store/store";
 import { IconDownload, IconTruck, IconLogout } from "../components/Icons";
@@ -9,8 +9,11 @@ import { BarChart, LineChart } from "../components/Charts";
 import { findNationById, findNationByEmail } from "../data/nations";
 
 export function NationDashboard() {
-  const { user, setUser, orders, nations, toast } = useApp();
+  const { user, setUser, orders, nations, toast, refreshOrders } = useApp();
   const { navigate } = useRouter();
+
+  // Sync orders from backend on every mount (pulls orders from all devices)
+  useEffect(() => { refreshOrders(); }, []);
 
   const nation = useMemo(() => {
     if (user?.nationId) return findNationById(user.nationId);
