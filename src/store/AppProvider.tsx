@@ -70,7 +70,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const timer = setTimeout(() => controller.abort(), 5000);
         // Use raw fetch with abort signal for timeout control
         const base = (await import("../api/client")).api.baseUrl || "http://localhost:5000/api/v1";
-        const res = await fetch(`${base}/auth/me`, {
+        const res = await fetch(`${base}/api/v1/auth/me`, {
           headers: { Authorization: `Bearer ${tok}` },
           signal: controller.signal,
         });
@@ -142,7 +142,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const tok = localStorage.getItem("db_access_token");
       const headers: Record<string, string> = {};
       if (tok) headers["Authorization"] = `Bearer ${tok}`;
-      const res = await fetch(`${base}/admin/orders?limit=200`, { headers });
+      const res = await fetch(`${base}/api/v1/admin/orders?limit=200`, { headers });
       if (res.ok) {
         const json = await res.json();
         const backendOrders: Order[] = (json.data?.items || []).map((o: any) => ({
