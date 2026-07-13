@@ -58,7 +58,7 @@ export function NationDashboard() {
         const tok = localStorage.getItem("db_access_token");
         const headers: Record<string, string> = {};
         if (tok) headers["Authorization"] = `Bearer ${tok}`;
-        const res = await fetch(`${base}/admin/orders?limit=500&nationId=${nationId}`, { headers });
+        const res = await fetch(`${base}/api/v1/admin/orders?limit=500&nationId=${nationId}`, { headers });
         if (res.ok) {
           const json = await res.json();
           setApiOrders((json.data?.items || []).map((o: any) => ({
