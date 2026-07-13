@@ -142,7 +142,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const tok = localStorage.getItem("db_access_token");
       const headers: Record<string, string> = {};
       if (tok) headers["Authorization"] = `Bearer ${tok}`;
-      const res = await fetch(`${base}/api/v1/admin/orders?limit=200`, { headers });
+      const res = await fetch(`${base}/api/v1/admin/orders?limit=500`, { headers });
       if (res.ok) {
         const json = await res.json();
         const backendOrders: Order[] = (json.data?.items || []).map((o: any) => ({
