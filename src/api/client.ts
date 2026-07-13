@@ -1,9 +1,11 @@
 // ============================================================================
 // Diamond Body — API Client
-// All auth, orders, products, and reviews go through the backend API.
 // ============================================================================
 
-const API_BASE = (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_API_URL) || "https://the-diamond-body-backend.onrender.com";
+// In production (Vercel), VITE_API_URL must be set in Vercel Dashboard:
+//   Settings → Environment Variables → VITE_API_URL = https://YOUR_APP.onrender.com/api/v1
+// Then redeploy for the change to take effect.
+const API_BASE = (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_API_URL) || "";
 
 type ApiResponse<T = unknown> = {
   success: boolean;
@@ -53,6 +55,10 @@ export async function apiFetch<T = unknown>(
   options: RequestInit = {},
   _retry = true
 ): Promise<T> {
+  if (!API_BASE) {
+    throw new ApiError(0, "API URL not configured. Set VITE_API_URL in Vercel environment variables.", undefined, true);
+  }
+
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     Accept: "application/json",
@@ -60,14 +66,20 @@ export async function apiFetch<T = unknown>(
   };
   if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`;
 
+  const fullUrl = `${API_BASE}${path}`;
+
   let res: Response;
   try {
-    res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+    res = await fetch(fullUrl, { ...options, headers });
   } catch (_networkErr) {
-    throw new ApiError(0, "Cannot connect to server. Please ensure the backend is running.", undefined, true);
+    throw new ApiError(
+      0,
+      `Cannot reach server at ${API_BASE}. Check that:\n• The Render backend service is running (not sleeping)\n• The URL is correct (should end with /api/v1)\n• CORS_ORIGINS in backend .env includes your Vercel domain`,
+      undefined,
+      true
+    );
   }
 
-  // Auto-refresh on 401
   if (res.status === 401 && _retry && refreshToken) {
     try {
       const refRes = await fetch(`${API_BASE}/auth/refresh`, {
@@ -79,9 +91,9 @@ export async function apiFetch<T = unknown>(
         const refJson: ApiResponse<{ accessToken: string; refreshToken: string }> = await refRes.json();
         setTokens(refJson.data.accessToken, refJson.data.refreshToken);
         headers["Authorization"] = `Bearer ${accessToken}`;
-        res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+        res = await fetch(fullUrl, { ...options, headers });
       }
-    } catch { /* proceed with original 401 */ }
+    } catch { }
   }
 
   let json: ApiResponse<T>;
@@ -98,8 +110,6 @@ export async function apiFetch<T = unknown>(
   return json.data;
 }
 
-// ---------- multipart upload ----------
-
 export async function apiUpload<T = unknown>(path: string, formData: FormData): Promise<T> {
   const headers: Record<string, string> = {};
   if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`;
@@ -108,15 +118,13 @@ export async function apiUpload<T = unknown>(path: string, formData: FormData): 
   try {
     res = await fetch(`${API_BASE}${path}`, { method: "POST", headers, body: formData });
   } catch {
-    throw new ApiError(0, "Cannot connect to server.", undefined, true);
+    throw new ApiError(0, "Cannot reach server.", undefined, true);
   }
 
   const json: ApiResponse<T> = await res.json();
   if (!json.success) throw new ApiError(res.status, json.message, (json as any).details, false);
   return json.data;
 }
-
-// ---------- convenience ----------
 
 export const api = {
   get: <T>(path: string) => apiFetch<T>(path),
