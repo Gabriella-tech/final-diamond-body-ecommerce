@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Container, Button, Badge } from "../components/UI";
-import { useApp, formatNGN } from "../store/store";
+import { useApp, formatNGN, type Order } from "../store/store";
 import { PRODUCTS } from "../data/products";
 import { parseRoute, useRouter, Link } from "../router";
 import { IconLogout, IconUpload, IconTruck, IconHeart, IconUser, IconMapPin } from "../components/Icons";
@@ -34,7 +34,42 @@ export function UserDashboard() {
     );
   }
 
-  const myOrders = orders.filter((o) => o.email === user.email || o.userId === user.id);
+  // =====================================================================
+  // Direct API fetch — pulls this user's orders from PostgreSQL
+  // =====================================================================
+  const [apiOrders, setApiOrders] = useState<Order[]>([]);
+
+  useEffect(() => {
+    const fetchMy = async () => {
+      try {
+        const base = (await import("../api/client")).api.baseUrl;
+        if (!base) return;
+        const tok = localStorage.getItem("db_access_token");
+        const headers: Record<string, string> = {};
+        if (tok) headers["Authorization"] = `Bearer ${tok}`;
+        const res = await fetch(`${base}/members/me/orders?limit=200`, { headers });
+        if (res.ok) {
+          const json = await res.json();
+          setApiOrders((json.data?.items || json.data || []).map((o: any) => ({
+            id: o.id, date: o.createdAt, customerName: o.customerName,
+            items: (o.items || []).map((it: any) => ({ productId: it.productId || "", name: it.name, price: Number(it.price), quantity: it.quantity })),
+            total: Number(o.total), status: o.status, paymentStatus: o.paymentStatus === "PAID" ? "Paid" : "Unpaid",
+            deliveryMethod: o.deliveryMethod === "PICKUP_STATION" ? "Pickup Station" : "Home Delivery",
+          } as Order)));
+        }
+      } catch { /* unreachable */ }
+    };
+    fetchMy();
+  }, []);
+
+  // Merge local + API orders
+  const localOrders = orders.filter((o) => o.email === user.email || o.userId === user.id);
+  const myOrders = useMemo(() => {
+    const allIds = new Set(apiOrders.map((o) => o.id));
+    const merged = [...apiOrders];
+    for (const o of localOrders) { if (!allIds.has(o.id)) merged.push(o); }
+    return merged;
+  }, [localOrders, apiOrders]);
   const myWishlist = PRODUCTS.filter((p) => wishlist.includes(p.id));
 
   const tabs: { k: Tab; l: string }[] = [

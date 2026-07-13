@@ -14,13 +14,102 @@ type Tab = "overview" | "orders" | "nations" | "pickup" | "products" | "subscrib
 
 export function AdminDashboard({ superAdmin = false }: { superAdmin?: boolean }) {
   const {
-    user, setUser, orders, nations, pickupStations, subscribers, refreshOrders,
+    user, setUser, orders, nations, pickupStations, subscribers,
     updateOrder, addPickupStation, updatePickupStation, deletePickupStation, toast,
   } = useApp();
   const { navigate } = useRouter();
 
-  // Sync orders from backend on every mount (pulls orders from all devices)
-  useEffect(() => { refreshOrders(); }, []);
+  // =====================================================================
+  // Direct API fetch for orders — bypasses localStorage entirely.
+  // The Admin always sees ALL orders from the PostgreSQL database,
+  // regardless of which device placed them.
+  // =====================================================================
+  const [apiOrders, setApiOrders] = useState<Order[]>([]);
+
+  const fetchOrdersFromBackend = async () => {
+
+    try {
+      const base = (await import("../api/client")).api.baseUrl;
+      if (!base) return;
+      const tok = localStorage.getItem("db_access_token");
+      const headers: Record<string, string> = {};
+      if (tok) headers["Authorization"] = `Bearer ${tok}`;
+      const res = await fetch(`${base}/admin/orders?limit=500`, { headers });
+      if (res.ok) {
+        const json = await res.json();
+        const list: Order[] = (json.data?.items || []).map((o: any) => ({
+          id: o.id, date: o.createdAt,
+          userId: o.userId || "", customerName: o.customerName, email: o.email, phone: o.phone,
+          address: { id: "", label: "", fullName: o.customerName, phone: o.phone, street: o.shippingStreet || "", city: o.shippingCity || "", state: o.shippingState || "", country: o.shippingCountry || "Nigeria" },
+          items: (o.items || []).map((it: any) => ({ productId: it.productId || "", name: it.name, price: Number(it.price), quantity: it.quantity })),
+          total: Number(o.total), shippingFee: Number(o.shippingFee || 0), discount: Number(o.discount || 0),
+          promoCode: o.promoCode || undefined,
+          paymentMethod: o.paymentMethod === "BANK_TRANSFER" ? "Bank Transfer" : "Paystack",
+          paymentStatus: o.paymentStatus === "AWAITING_VERIFICATION" ? "Awaiting Verification" : o.paymentStatus === "PAID" ? "Paid" : "Unpaid",
+          paystackReference: o.paystackReference || undefined,
+          bankProofUrl: (o.paymentProofs && o.paymentProofs.length > 0) ? o.paymentProofs[0].fileUrl : undefined,
+          status: o.status,
+          nationId: o.nationId || undefined, nationName: o.nationName || undefined, nationSlug: o.nationSlug || undefined,
+          referralCode: o.referralCode || undefined,
+          deliveryMethod: o.deliveryMethod === "PICKUP_STATION" ? "Pickup Station" : "Home Delivery",
+          pickupStationId: o.pickupStationId || undefined, pickupStationName: o.pickupStationName || undefined,
+          trackingNumber: o.trackingNumber || undefined,
+        }));
+        setApiOrders(list);
+      }
+    } catch { /* backend unreachable */ }
+  };
+
+  useEffect(() => { fetchOrdersFromBackend(); }, []);
+  useEffect(() => {
+    // Also merge app-state orders (from checkout placeOrder) into the API list
+    setApiOrders((prev) => {
+      const existingIds = new Set(prev.map((o) => o.id));
+      const newLocal = orders.filter((o) => !existingIds.has(o.id));
+      return newLocal.length > 0 ? [...newLocal, ...prev] : prev;
+    });
+  }, [orders]);
+
+  // Stats computed from apiOrders (the source of truth)
+  const displayOrders = apiOrders.length > 0 ? apiOrders : orders;
+  const stats = useMemo(() => {
+    const total = displayOrders.reduce((s, o) => s + o.total, 0);
+    const paid = displayOrders.filter((o) => o.paymentStatus === "Paid");
+    const pending = displayOrders.filter((o) => o.paymentStatus !== "Paid");
+    const processing = displayOrders.filter((o) => o.status === "Processing");
+    const delivered = displayOrders.filter((o) => o.status === "Delivered");
+    const paidRevenue = paid.reduce((s, o) => s + o.total, 0);
+    return {
+      revenue: total, paidRevenue, orders: displayOrders.length,
+      paid: paid.length, pending: pending.length, processing: processing.length, delivered: delivered.length,
+    };
+  }, [displayOrders]);
+
+  const topProducts = useMemo(() => {
+    const map = new Map<string, { name: string; qty: number; revenue: number }>();
+    for (const o of displayOrders) for (const it of o.items) {
+      const c = map.get(it.productId) || { name: it.name, qty: 0, revenue: 0 };
+      c.qty += it.quantity; c.revenue += it.price * it.quantity;
+      map.set(it.productId, c);
+    }
+    return [...map.values()].sort((a, b) => b.qty - a.qty).slice(0, 5);
+  }, [displayOrders]);
+
+  const monthlyRevenue = useMemo(() => {
+    const months: { label: string; value: number }[] = [];
+    const now = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const v = displayOrders
+        .filter((o) => {
+          const od = new Date(o.date);
+          return od.getFullYear() === d.getFullYear() && od.getMonth() === d.getMonth() && o.paymentStatus === "Paid";
+        })
+        .reduce((s, o) => s + o.total, 0);
+      months.push({ label: d.toLocaleDateString("en-US", { month: "short" }), value: v });
+    }
+    return months;
+  }, [displayOrders]);
 
   const [tab, setTab] = useState<Tab>("overview");
   const [exportScope, setExportScope] = useState<ExportScope>("all");
@@ -42,49 +131,10 @@ export function AdminDashboard({ superAdmin = false }: { superAdmin?: boolean })
     );
   }
 
-  const stats = useMemo(() => {
-    const total = orders.reduce((s, o) => s + o.total, 0);
-    const paid = orders.filter((o) => o.paymentStatus === "Paid");
-    const pending = orders.filter((o) => o.paymentStatus !== "Paid");
-    const processing = orders.filter((o) => o.status === "Processing");
-    const delivered = orders.filter((o) => o.status === "Delivered");
-    const paidRevenue = paid.reduce((s, o) => s + o.total, 0);
-    return {
-      revenue: total, paidRevenue, orders: orders.length,
-      paid: paid.length, pending: pending.length, processing: processing.length, delivered: delivered.length,
-    };
-  }, [orders]);
-
-  const topProducts = useMemo(() => {
-    const map = new Map<string, { name: string; qty: number; revenue: number }>();
-    for (const o of orders) for (const it of o.items) {
-      const c = map.get(it.productId) || { name: it.name, qty: 0, revenue: 0 };
-      c.qty += it.quantity; c.revenue += it.price * it.quantity;
-      map.set(it.productId, c);
-    }
-    return [...map.values()].sort((a, b) => b.qty - a.qty).slice(0, 5);
-  }, [orders]);
-
-  const monthlyRevenue = useMemo(() => {
-    const months: { label: string; value: number }[] = [];
-    const now = new Date();
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const v = orders
-        .filter((o) => {
-          const od = new Date(o.date);
-          return od.getFullYear() === d.getFullYear() && od.getMonth() === d.getMonth() && o.paymentStatus === "Paid";
-        })
-        .reduce((s, o) => s + o.total, 0);
-      months.push({ label: d.toLocaleDateString("en-US", { month: "short" }), value: v });
-    }
-    return months;
-  }, [orders]);
-
   const handleExport = async () => {
     setExporting(true);
     try {
-      const r = await exportOrdersExcel(orders, {
+      const r = await exportOrdersExcel(displayOrders, {
         scope: exportScope,
         startDate: exportScope === "range" ? startDate : undefined,
         endDate: exportScope === "range" ? endDate : undefined,
@@ -101,7 +151,7 @@ export function AdminDashboard({ superAdmin = false }: { superAdmin?: boolean })
 
   const tabs: { k: Tab; l: string }[] = [
     { k: "overview", l: "Overview" },
-    { k: "orders", l: `Orders (${orders.length})` },
+            { k: "orders", l: `Orders (${displayOrders.length})` },
     { k: "nations", l: `Nations (${NATIONS.length})` },
     { k: "pickup", l: `Pickup Stations (${pickupStations.length})` },
     { k: "products", l: `Products (${PRODUCTS.length})` },
@@ -257,7 +307,7 @@ export function AdminDashboard({ superAdmin = false }: { superAdmin?: boolean })
                       </tr>
                     </thead>
                     <tbody>
-                      {orders.map((o) => (
+                      {displayOrders.map((o) => (
                         <AdminOrderRow key={o.id} order={o} onUpdate={updateOrder}/>
                       ))}
                     </tbody>
@@ -283,7 +333,7 @@ export function AdminDashboard({ superAdmin = false }: { superAdmin?: boolean })
                     </thead>
                     <tbody>
                       {NATIONS.map((n) => {
-                        const count = orders.filter((o) => o.nationId === n.id).length;
+                        const count = displayOrders.filter((o) => o.nationId === n.id).length;
                         return (
                           <tr key={n.id} className="border-b border-gray-50 hover:bg-gray-50">
                             <td className="py-3 pr-3 font-mono font-semibold text-[#4A0E16]">{n.id}</td>
@@ -358,7 +408,7 @@ export function AdminDashboard({ superAdmin = false }: { superAdmin?: boolean })
                   <p className="text-xs text-gray-500 mb-4">These appear on the checkout page for bank transfer payments.</p>
                   <div className="space-y-3">
                     {[
-                      ["Bank Name", "Zennith Bank"],
+                      ["Bank Name", "Zenith Bank"],
                       ["Account Name", "Sell Masters Limited"],
                       ["Account Number", "1311356402"],
                       ["Reference", "Use your Order ID as payment reference"],

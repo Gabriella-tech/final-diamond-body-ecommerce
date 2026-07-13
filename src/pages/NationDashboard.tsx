@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Container, Button, Badge } from "../components/UI";
-import { useApp, formatNGN } from "../store/store";
+import { useApp, formatNGN, type Order } from "../store/store";
 import { IconDownload, IconTruck, IconLogout } from "../components/Icons";
 import { clearTokens } from "../api/client";
 import { Link, useRouter } from "../router";
@@ -45,13 +45,46 @@ export function NationDashboard() {
 
   const nationId = nation.id;
 
-  // CHANGE 7: Only this Nation's orders
+  // =====================================================================
+  // Direct API fetch — pulls only this nation's orders from PostgreSQL
+  // =====================================================================
+  const [apiOrders, setApiOrders] = useState<Order[]>([]);
+
+  useEffect(() => {
+    const fetchMyOrders = async () => {
+      try {
+        const base = (await import("../api/client")).api.baseUrl;
+        if (!base) return;
+        const tok = localStorage.getItem("db_access_token");
+        const headers: Record<string, string> = {};
+        if (tok) headers["Authorization"] = `Bearer ${tok}`;
+        const res = await fetch(`${base}/admin/orders?limit=500&nationId=${nationId}`, { headers });
+        if (res.ok) {
+          const json = await res.json();
+          setApiOrders((json.data?.items || []).map((o: any) => ({
+            id: o.id, date: o.createdAt, customerName: o.customerName, email: o.email,
+            items: (o.items || []).map((it: any) => ({ productId: it.productId || "", name: it.name, price: Number(it.price), quantity: it.quantity })),
+            total: Number(o.total), paymentStatus: o.paymentStatus === "PAID" ? "Paid" : "Unpaid",
+            status: o.status, referralCode: o.referralCode || undefined,
+            nationId: o.nationId, nationName: o.nationName,
+          } as Order)));
+        }
+      } catch { /* unreachable */ }
+    };
+    fetchMyOrders();
+  }, [nationId]);
+
+  // Merge local + API orders
   const myOrders = useMemo(() => {
-    let list = orders.filter((o) => o.nationId === nationId);
+    const local = orders.filter((o) => o.nationId === nationId);
+    const allIds = new Set(apiOrders.map((o) => o.id));
+    const merged = [...apiOrders];
+    for (const o of local) { if (!allIds.has(o.id)) merged.push(o); }
+    let list = merged;
     if (filter === "paid") list = list.filter((o) => o.paymentStatus === "Paid");
     if (filter === "pending") list = list.filter((o) => o.paymentStatus !== "Paid");
     return list;
-  }, [orders, nationId, filter]);
+  }, [orders, apiOrders, nationId, filter]);
 
   const paidOrders = myOrders.filter((o) => o.paymentStatus === "Paid");
   const revenue = paidOrders.reduce((s, o) => s + o.total, 0);
@@ -99,7 +132,7 @@ export function NationDashboard() {
     setExporting(true);
     try {
       // CHANGE 9: Nation can only export their own orders
-      const r = await exportOrdersExcel(orders, { scope: "nation", nationId }, nations);
+      const r = await exportOrdersExcel(myOrders, { scope: "nation", nationId }, nations);
       toast({ type: "success", message: `Exported ${r.count} order(s) → ${r.filename}` });
     } catch {
       toast({ type: "error", message: "Export failed. Please try again." });
