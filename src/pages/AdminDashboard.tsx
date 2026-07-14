@@ -27,14 +27,26 @@ export function AdminDashboard({ superAdmin = false }: { superAdmin?: boolean })
   const [apiOrders, setApiOrders] = useState<Order[]>([]);
 
   const fetchOrdersFromBackend = async () => {
-
     try {
-      const base = (await import("../api/client")).api.baseUrl;
-      if (!base) return;
-      const tok = localStorage.getItem("db_access_token");
-      const headers: Record<string, string> = {};
-      if (tok) headers["Authorization"] = `Bearer ${tok}`;
-      const res = await fetch(`${base}/api/v1/admin/orders?limit=500`, { headers });
+        const base = (await import("../api/client")).api.baseUrl;
+        if (!base) return;
+
+        const tok = localStorage.getItem("db_access_token");
+        const headers: Record<string, string> = {
+            "Content-Type": "application/json"
+        };
+        
+        if (tok) {
+            headers["Authorization"] = `Bearer ${tok}`;
+        }
+
+        const res = await fetch(`${base}/api/v1/admin/orders?limit=500`, { headers });
+        
+        if (!res.ok) {
+            const errorText = await res.text();
+            console.error("Dashboard fetch failed:", res.status, errorText);
+            return;
+        }
       if (res.ok) {
         const json = await res.json();
         const list: Order[] = (json.data?.items || []).map((o: any) => ({

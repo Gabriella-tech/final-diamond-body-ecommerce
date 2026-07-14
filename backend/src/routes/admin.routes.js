@@ -95,7 +95,7 @@ router.patch("/categories/:id", product.updateCategory);
 router.delete("/categories/:id", product.deleteCategory);
 
 // ---------- Orders ----------
-router.get("/orders", order.adminListOrders);
+router.get("/orders", admin.ordersReport);
 router.get("/orders/:id", order.adminGetOrder);
 router.patch(
   "/orders/:id/status",

@@ -64,13 +64,13 @@ exports.createOrder = asyncHandler(async (req, res) => {
   // Load products and lock in prices from server (never trust client prices)
   const productIds = items.map((i) => i.productId);
   const products = await prisma.product.findMany({
-    where: { id: { in: productIds }, isActive: true },
+    where: { slug: { in: productIds }, isActive: true },
   });
   if (products.length !== productIds.length) {
     throw ApiError.badRequest("One or more products are invalid or inactive");
   }
 
-  const productMap = new Map(products.map((p) => [p.id, p]));
+  const productMap = new Map(products.map((p) => [p.slug, p]));
   let subtotal = 0;
   const orderItems = items.map((i) => {
     const p = productMap.get(i.productId);
