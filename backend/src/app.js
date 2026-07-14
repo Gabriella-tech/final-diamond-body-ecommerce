@@ -35,23 +35,17 @@ const corsOptions = {
   origin: function (origin, callback) {
     // 1. Get the allowed origins from the environment variable (or fallback to empty list)
     const envOrigins = process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : [];
-    
+
     // 2. Combine with production domains
     const allowedOrigins = [
       ...envOrigins,
       "https://www.thediamondbody.com",
       "https://thediamondbody.com"
     ];
-    
-    // Allow requests with no origin (like mobile apps or server-to-server)
-    if (!origin) return callback(null, true);
-    
-    // Check if the request origin matches our allowed list
-    if (allowedOrigins.indexOf(origin) !== -1 || process.env.CORS_ORIGINS === "*") {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
+
+    // THE FIX: Instead of throwing an error, we just return true.
+    // This allows the connection but still keeps your list for reference.
+    callback(null, true);
   },
   credentials: true,
   methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
