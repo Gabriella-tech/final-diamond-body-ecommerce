@@ -13,6 +13,7 @@ const uploadService = require("../services/upload.service");
 // ============================================================================
 
 exports.createOrder = asyncHandler(async (req, res) => {
+  console.log("DEBUG: Incoming Request Body:", req.body);
   const {
     // Contact
     customerName, email, phone,
