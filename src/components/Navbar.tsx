@@ -43,7 +43,7 @@ export function Navbar() {
             </div>
             <div className="leading-tight">
               <div className="font-display text-lg lg:text-xl font-bold text-[#4A0E16]">Diamond Body</div>
-              <div className="text-[10px] tracking-[0.2em] text-gray-500 uppercase hidden sm:block">Getting your body to its ultimate version</div>
+              <div className="text-[10px] tracking-[0.2em] text-gray-500 uppercase hidden sm:block">Getting your body to its ultimate form</div>
             </div>
           </Link>
 

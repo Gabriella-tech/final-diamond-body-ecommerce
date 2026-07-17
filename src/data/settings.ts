@@ -12,7 +12,7 @@ export const BUSINESS = {
   address: "Lagos, Nigeria",
   hours: "Mon–Sat, 9am–6pm",
   name: "Diamond Body",
-  tagline: "When your inside is a diamond, everything else shines.",
+  tagline: "Getting your body to its ultimate form",
 };
 
 export const SOCIAL = {

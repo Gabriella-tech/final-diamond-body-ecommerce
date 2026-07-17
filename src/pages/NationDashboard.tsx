@@ -50,41 +50,41 @@ export function NationDashboard() {
   // =====================================================================
   const [apiOrders, setApiOrders] = useState<Order[]>([]);
 
-  useEffect(() => {
-    const fetchMyOrders = async () => {
-      try {
-        const base = (await import("../api/client")).api.baseUrl;
-        if (!base) return;
-        const tok = localStorage.getItem("db_access_token");
-        const headers: Record<string, string> = {};
-        if (tok) headers["Authorization"] = `Bearer ${tok}`;
-        const res = await fetch(`${base}/api/v1/admin/orders?limit=500&nationId=${nationId}`, { headers });
-        if (res.ok) {
-          const json = await res.json();
-          setApiOrders((json.data?.items || []).map((o: any) => ({
-            id: o.id, date: o.createdAt, customerName: o.customerName, email: o.email,
-            items: (o.items || []).map((it: any) => ({ productId: it.productId || "", name: it.name, price: Number(it.price), quantity: it.quantity })),
-            total: Number(o.total), paymentStatus: o.paymentStatus === "PAID" ? "Paid" : "Unpaid",
-            status: o.status, referralCode: o.referralCode || undefined,
-            nationId: o.nationId, nationName: o.nationName,
-          } as Order)));
-        }
-      } catch { /* unreachable */ }
-    };
-    fetchMyOrders();
-  }, [nationId]);
+ useEffect(() => {
+  const fetchMyOrders = async () => {
+    try {
+      const base = "https://the-diamond-body-backend.onrender.com/api/v1";
+      const tok = localStorage.getItem("db_access_token");
+      const headers: Record<string, string> = {};
+      if (tok) headers["Authorization"] = `Bearer ${tok}`;
+      const res = await fetch(`${base}/admin/orders?limit=500&nationId=${nationId}`, { headers });
+      if (res.ok) {
+        const json = await res.json();
+        setApiOrders((json.data?.items || []).map((o: any) => ({
+          id: o.id, date: o.createdAt, customerName: o.customerName, email: o.email,
+          items: (o.items || []).map((it: any) => ({ productId: it.productId || "", name: it.name, price: Number(it.price), quantity: it.quantity })),
+          total: Number(o.total), paymentStatus: o.paymentStatus === "PAID" ? "Paid" : "Unpaid",
+          status: o.status, referralCode: o.referralCode || undefined,
+          nationId: o.nationId, nationName: o.nationName,
+        } as Order)));
+      }
+    } catch { /* unreachable */ }
+  };
+  fetchMyOrders();
+}, [nationId]);
 
-  // Merge local + API orders
-  const myOrders = useMemo(() => {
-    const local = orders.filter((o) => o.nationId === nationId);
-    const allIds = new Set(apiOrders.map((o) => o.id));
-    const merged = [...apiOrders];
-    for (const o of local) { if (!allIds.has(o.id)) merged.push(o); }
-    let list = merged;
-    if (filter === "paid") list = list.filter((o) => o.paymentStatus === "Paid");
-    if (filter === "pending") list = list.filter((o) => o.paymentStatus !== "Paid");
-    return list;
-  }, [orders, apiOrders, nationId, filter]);
+const myOrders = useMemo(() => {
+  const local = orders.filter((o) => o.nationId === nationId);
+  const allIds = new Set(apiOrders.map((o) => o.id));
+  const merged = [...apiOrders];
+  for (const o of local) { if (!allIds.has(o.id)) merged.push(o); }
+  let list = merged;
+  if (filter === "paid") list = list.filter((o) => o.paymentStatus === "Paid");
+  if (filter === "pending") list = list.filter((o) => o.paymentStatus !== "Paid");
+  return list;
+}, [orders, apiOrders, nationId, filter]);
+
+
 
   const paidOrders = myOrders.filter((o) => o.paymentStatus === "Paid");
   const revenue = paidOrders.reduce((s, o) => s + o.total, 0);

@@ -545,7 +545,7 @@ export const TESTIMONIALS = [
     name: "Dr. Adeola K.",
     role: "Nutritionist",
     location: "Abuja",
-    text: "I recommend Diamond Body to my clients. Clean formulations backed by science — exactly what the wellness industry needs.",
+    text: "I recommend Diamond Body to my clients. Clean formulations backed by science exactly what the wellness industry needs.",
     rating: 5,
   },
   {
@@ -569,7 +569,7 @@ export const TESTIMONIALS = [
 export const FAQS = [
   {
     q: "Are Diamond Body products safe and natural?",
-    a: "Yes. Every product is formulated with clean, science-backed ingredients, manufactured in certified facilities and tested for purity and potency.",
+    a: "Yes. Every product is formulated with clean, science backed ingredients, manufactured in certified facilities and tested for purity and potency.",
   },
   {
     q: "How long until I see results?",

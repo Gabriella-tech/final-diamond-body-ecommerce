@@ -63,13 +63,13 @@ export function UserDashboard() {
   }, []);
 
   // Merge local + API orders
-  const localOrders = orders.filter((o) => o.email === user.email || o.userId === user.id);
   const myOrders = useMemo(() => {
+    const localOrders = orders.filter((o) => o.email === user.email || o.userId === user.id);
     const allIds = new Set(apiOrders.map((o) => o.id));
     const merged = [...apiOrders];
     for (const o of localOrders) { if (!allIds.has(o.id)) merged.push(o); }
     return merged;
-  }, [localOrders, apiOrders]);
+  }, [orders, apiOrders]);
   const myWishlist = PRODUCTS.filter((p) => wishlist.includes(p.id));
 
   const tabs: { k: Tab; l: string }[] = [

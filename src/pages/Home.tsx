@@ -28,12 +28,12 @@ export function Home() {
                 <IconDiamond size={12} /> Premium Wellness
               </Badge>
               <h1 className="font-display text-4xl sm:text-5xl lg:text-7xl font-bold leading-[1.05] mb-6">
-                When your <span className="italic text-white/90">inside</span><br/>
-                is a <span className="text-white">diamond,</span><br/>
-                everything else <span className="text-white/80">shines.</span>
+                Getting <span className="italic text-white/90">your</span><br/>
+                body<span className="text-white">to its</span><br/>
+                ultimate<span className="text-white/80">form.</span>
               </h1>
               <p className="text-lg text-white/80 mb-8 max-w-xl leading-relaxed">
-                Natural, science-backed formulas for detox, digestion, energy, and lifelong vitality.
+                Natural, science backed formulas for detox, digestion, energy, and lifelong vitality.
                 Because looking good means nothing if you don't feel good.
               </p>
               <div className="flex flex-col sm:flex-row gap-3">
@@ -89,7 +89,7 @@ export function Home() {
         <Container className="grid grid-cols-2 md:grid-cols-4 gap-4 py-8">
           {[
             { icon: <IconLeaf size={22}/>, t: "100% Natural", s: "Clean ingredients" },
-            { icon: <IconShield size={22}/>, t: "Science-Backed", s: "Lab tested" },
+            { icon: <IconShield size={22}/>, t: "Science Backed", s: "Lab tested" },
             { icon: <IconTruck size={22}/>, t: "Free Pickup", s: "At any pickup station" },
             { icon: <IconHeart size={22}/>, t: "Real Results", s: "No shortcuts" },
           ].map((x, i) => (
@@ -112,7 +112,7 @@ export function Home() {
           <SectionTitle
             eyebrow="Featured Wellness"
             title="Discover Diamond Body"
-            subtitle="Premium formulas designed to support your body's most important systems — from the inside out."
+            subtitle="Premium formulas designed to support your body's most important systems from the inside out."
           />
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6 mt-12">
             {featured.slice(0, 4).map((p) => <ProductCard key={p.id} product={p} />)}
@@ -163,7 +163,7 @@ export function Home() {
                 True wellness <em className="text-white/80">starts within.</em>
               </h2>
               <p className="text-white/80 leading-relaxed mb-8">
-                At Diamond Body, we focus on internal health — the organs and systems that keep your body running.
+                At Diamond Body, we focus on internal health, the organs and systems that keep your body running.
                 Our formulas support detox, digestion, energy, circulation, and long-term vitality.
               </p>
               <div className="space-y-4">
@@ -232,7 +232,7 @@ export function Home() {
           <div className="grid md:grid-cols-3 gap-6 mt-12">
             {[
               { n: "01", t: "Clean Ingredients", d: "We never compromise on quality. Every ingredient is sourced from trusted partners and rigorously tested." },
-              { n: "02", t: "Real Results", d: "Our formulas are designed to deliver measurable wellness benefits — not empty promises." },
+              { n: "02", t: "Real Results", d: "Our formulas are designed to deliver measurable wellness benefits not empty promises." },
               { n: "03", t: "No Shortcuts", d: "We believe in long-term wellness. No quick fixes, no harmful additives, just honest nutrition." },
             ].map((x) => (
               <div key={x.n} className="bg-white rounded-2xl p-8 border border-gray-100">

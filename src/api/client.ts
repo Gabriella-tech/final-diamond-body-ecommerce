@@ -1,11 +1,15 @@
 // ============================================================================
-// Diamond Body — API Client
+// Diamond Body — API Client (Production Hardened)
 // ============================================================================
 
-// In production (Vercel), VITE_API_URL must be set in Vercel Dashboard:
-//   Settings → Environment Variables → VITE_API_URL = https://YOUR_APP.onrender.com/api/v1
-// Then redeploy for the change to take effect.
-const API_BASE = (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_API_URL) || "";
+const PROD_FALLBACK = "https://the-diamond-body-backend.onrender.com/api/v1";
+
+const API_BASE =
+  (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_API_URL) ||
+  PROD_FALLBACK ||
+  "http://localhost:5000/api/v1";
+
+console.log("[API] Using backend:", API_BASE);
 
 type ApiResponse<T = unknown> = {
   success: boolean;
@@ -55,10 +59,6 @@ export async function apiFetch<T = unknown>(
   options: RequestInit = {},
   _retry = true
 ): Promise<T> {
-  if (!API_BASE) {
-    throw new ApiError(0, "API URL not configured. Set VITE_API_URL in Vercel environment variables.", undefined, true);
-  }
-
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     Accept: "application/json",
@@ -72,12 +72,7 @@ export async function apiFetch<T = unknown>(
   try {
     res = await fetch(fullUrl, { ...options, headers });
   } catch (_networkErr) {
-    throw new ApiError(
-      0,
-      `Cannot reach server at ${API_BASE}. Check that:\n• The Render backend service is running (not sleeping)\n• The URL is correct (should end with /api/v1)\n• CORS_ORIGINS in backend .env includes your Vercel domain`,
-      undefined,
-      true
-    );
+    throw new ApiError(0, `Cannot reach server at ${API_BASE}`, undefined, true);
   }
 
   if (res.status === 401 && _retry && refreshToken) {

@@ -153,7 +153,7 @@ export function Shop() {
                 <div className="text-5xl mb-4">🔎</div>
                 <h3 className="font-display text-xl font-bold mb-2">No products match your filters</h3>
                 <p className="text-gray-600 mb-6">Try adjusting your search or browse all products.</p>
-                <Button onClick={() => { setCategory("all"); setQuery(""); setPriceMax(50000); }}>Reset filters</Button>
+                <Button onClick={() => { setCategory("all"); setQuery(""); setPriceMax(50000000); }}>Reset filters</Button>
               </div>
             ) : (
               <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-5">
