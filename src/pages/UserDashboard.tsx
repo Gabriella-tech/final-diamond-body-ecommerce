@@ -35,41 +35,43 @@ export function UserDashboard() {
   }
 
   // =====================================================================
-  // Direct API fetch — pulls this user's orders from PostgreSQL
-  // =====================================================================
-  const [apiOrders, setApiOrders] = useState<Order[]>([]);
+// Direct API fetch — pulls this user's orders from PostgreSQL
+// This ensures the user sees their orders on ANY device.
+// =====================================================================
+const [apiOrders, setApiOrders] = useState<Order[]>([]);
 
-  useEffect(() => {
-    const fetchMy = async () => {
-      try {
-        const base = (await import("../api/client")).api.baseUrl;
-        if (!base) return;
-        const tok = localStorage.getItem("db_access_token");
-        const headers: Record<string, string> = {};
-        if (tok) headers["Authorization"] = `Bearer ${tok}`;
-        const res = await fetch(`${base}/members/me/orders?limit=200`, { headers });
-        if (res.ok) {
-          const json = await res.json();
-          setApiOrders((json.data?.items || json.data || []).map((o: any) => ({
-            id: o.id, date: o.createdAt, customerName: o.customerName,
-            items: (o.items || []).map((it: any) => ({ productId: it.productId || "", name: it.name, price: Number(it.price), quantity: it.quantity })),
-            total: Number(o.total), status: o.status, paymentStatus: o.paymentStatus === "PAID" ? "Paid" : "Unpaid",
-            deliveryMethod: o.deliveryMethod === "PICKUP_STATION" ? "Pickup Station" : "Home Delivery",
-          } as Order)));
-        }
-      } catch { /* unreachable */ }
-    };
-    fetchMy();
-  }, []);
+useEffect(() => {
+  const fetchMy = async () => {
+    try {
+      const base = "https://the-diamond-body-backend.onrender.com/api/v1";
+      const tok = localStorage.getItem("db_access_token");
+      const headers: Record<string, string> = {};
+      if (tok) headers["Authorization"] = `Bearer ${tok}`;
+      const res = await fetch(`${base}/members/me/orders?limit=200`, { headers });
+      if (res.ok) {
+        const json = await res.json();
+        setApiOrders((json.data?.items || json.data || []).map((o: any) => ({
+          id: o.id, date: o.createdAt, customerName: o.customerName,
+          items: (o.items || []).map((it: any) => ({ productId: it.productId || "", name: it.name, price: Number(it.price), quantity: it.quantity })),
+          total: Number(o.total), status: o.status, paymentStatus: o.paymentStatus === "PAID" ? "Paid" : "Unpaid",
+          deliveryMethod: o.deliveryMethod === "PICKUP_STATION" ? "Pickup Station" : "Home Delivery",
+        } as Order)));
+      }
+    } catch { /* unreachable */ }
+  };
+  fetchMy();
+}, []);
 
-  // Merge local + API orders
-  const myOrders = useMemo(() => {
-    const localOrders = orders.filter((o) => o.email === user.email || o.userId === user.id);
-    const allIds = new Set(apiOrders.map((o) => o.id));
-    const merged = [...apiOrders];
-    for (const o of localOrders) { if (!allIds.has(o.id)) merged.push(o); }
-    return merged;
-  }, [orders, apiOrders]);
+// Merge local + API orders
+const localOrders = orders.filter((o) => o.email === user.email || o.userId === user.id);
+const myOrders = useMemo(() => {
+  const allIds = new Set(apiOrders.map((o) => o.id));
+  const merged = [...apiOrders];
+  for (const o of localOrders) { if (!allIds.has(o.id)) merged.push(o); }
+  return merged;
+}, [localOrders, apiOrders]);
+
+  
   const myWishlist = PRODUCTS.filter((p) => wishlist.includes(p.id));
 
   const tabs: { k: Tab; l: string }[] = [

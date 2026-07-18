@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useApp, cartTotal, formatNGN, type Order, type DeliveryMethod } from "../store/store";
 import { PRODUCTS } from "../data/products";
 import { DELIVERY_FEE } from "../data/pickupStations";
-import { getActiveNation } from "../data/nations";
+import { getActiveNation, NATIONS as nations } from "../data/nations";
 import { BANK } from "../data/settings";
 import { Container, Button } from "../components/UI";
 import { IconCheck, IconUpload } from "../components/Icons";
@@ -16,15 +16,12 @@ export function Checkout() {
   const [promo, setPromo] = useState("");
   const [appliedPromo, setAppliedPromo] = useState<{ code: string; discount: number } | null>(null);
 
-  // CHANGE 4 & 5: Delivery method (Home Delivery default)
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>("Home Delivery");
-
-  // Pickup station selector
   const activeStations = pickupStations.filter((p) => p.status === "active");
   const [pickupStationId, setPickupStationId] = useState<string>(activeStations[0]?.id || "");
 
-  // CHANGE 3: Optional free-text referral code (NO leader dropdown)
-  const [referralCode, setReferralCode] = useState("");
+  // Referral Code is now mandatory with a default value
+  const [referralCode, setReferralCode] = useState("NEW_CUSTOMER");
 
   const shipping = deliveryMethod === "Pickup Station" ? 0 : DELIVERY_FEE;
   const discount = appliedPromo?.discount || 0;
@@ -39,7 +36,7 @@ export function Checkout() {
     state: "",
     country: "Nigeria",
   });
-  const method: "Bank Transfer" = "Bank Transfer";
+  const [method] = useState<"Bank Transfer">("Bank Transfer");
   const [proofFile, setProofFile] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
 
@@ -82,8 +79,8 @@ export function Checkout() {
         customerName: form.fullName,
         email: form.email,
         phone: form.phone,
-        nationSlug: nation?.slug,
-        referralCode: referralCode.trim() || undefined,
+        nationSlug: referralCode === "NEW_CUSTOMER" ? undefined : referralCode,
+        referralCode: referralCode === "NEW_CUSTOMER" ? undefined : referralCode,
         deliveryMethod: deliveryMethod === "Home Delivery" ? "HOME_DELIVERY" : "PICKUP_STATION",
         shippingStreet: deliveryMethod === "Home Delivery" ? form.street : undefined,
         shippingCity: deliveryMethod === "Home Delivery" ? form.city : undefined,
@@ -96,11 +93,11 @@ export function Checkout() {
         items: cart.map((c) => ({ productId: c.productId, quantity: c.quantity })),
       });
       backendOk = true;
-    } catch {
+    } catch (apiErr: any) {
       backendOk = false;
+      console.error("[Checkout] Backend order failed:", apiErr?.message || apiErr);
     }
 
-    // Build order object (from backend response or fallback)
     const id = "DB-" + new Date().getFullYear() + "-" + String(Math.floor(1000 + Math.random() * 9000));
     const order: Order = {
       id, date: new Date().toISOString(),
@@ -119,11 +116,10 @@ export function Checkout() {
       paymentStatus: proofFile ? "Awaiting Verification" : "Unpaid",
       bankProofUrl: proofFile || undefined, status: "Awaiting Payment",
       nationId: nation?.id, nationName: nation?.name, nationSlug: nation?.slug,
-      referralCode: referralCode.trim() || undefined,
+      referralCode: referralCode === "NEW_CUSTOMER" ? undefined : referralCode,
       deliveryMethod, pickupStationId: pickupStation?.id, pickupStationName: pickupStation?.name,
     };
 
-    // ALWAYS save the order locally so it survives refreshes
     addOrder(order);
     clearCart();
     setSubmitted(true);
@@ -162,7 +158,6 @@ export function Checkout() {
       <h1 className="font-display text-3xl sm:text-4xl font-bold mb-8 text-[#222]">Checkout</h1>
       <form onSubmit={placeOrder} className="grid lg:grid-cols-[1fr_400px] gap-8">
         <div className="space-y-8">
-          {/* CONTACT */}
           <div className="bg-white border border-gray-100 rounded-2xl p-6">
             <h3 className="font-display text-xl font-bold mb-4">Contact Information</h3>
             <div className="grid sm:grid-cols-2 gap-4">
@@ -172,7 +167,6 @@ export function Checkout() {
             </div>
           </div>
 
-          {/* DELIVERY METHOD (Change 4 & 5) */}
           <div className="bg-white border border-gray-100 rounded-2xl p-6">
             <h3 className="font-display text-xl font-bold mb-4">Delivery Method</h3>
             <div className="space-y-3">
@@ -198,7 +192,6 @@ export function Checkout() {
               </label>
             </div>
 
-            {/* Conditional fields */}
             {deliveryMethod === "Home Delivery" && (
               <div className="mt-5 grid sm:grid-cols-2 gap-4">
                 <Field label="Street Address" value={form.street} onChange={(v) => setForm({...form, street: v})} className="sm:col-span-2" required/>
@@ -211,18 +204,9 @@ export function Checkout() {
               <div className="mt-5">
                 <label className="block">
                   <span className="block text-xs font-semibold text-gray-700 mb-1">Select Pickup Station *</span>
-                  <select
-                    required
-                    value={pickupStationId}
-                    onChange={(e) => setPickupStationId(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-[#4A0E16] text-sm bg-white"
-                  >
+                  <select required value={pickupStationId} onChange={(e) => setPickupStationId(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-[#4A0E16] text-sm bg-white">
                     <option value="">— Choose a station —</option>
-                    {activeStations.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name} — {s.city}, {s.state}
-                      </option>
-                    ))}
+                    {activeStations.map((s) => (<option key={s.id} value={s.id}>{s.name} — {s.city}, {s.state}</option>))}
                   </select>
                 </label>
                 {pickupStationId && (() => {
@@ -240,11 +224,9 @@ export function Checkout() {
             )}
           </div>
 
-          {/* PAYMENT */}
           <div className="bg-white border border-gray-100 rounded-2xl p-6">
             <h3 className="font-display text-xl font-bold mb-4">Payment Method</h3>
             <div className="space-y-3">
-              {/* Paystack — Coming Soon */}
               <label className="flex items-start gap-3 p-4 rounded-xl border-2 border-amber-200 bg-amber-50/50 cursor-not-allowed opacity-75">
                 <input type="radio" name="pm" disabled className="mt-1 accent-amber-500"/>
                 <div className="flex-1">
@@ -255,7 +237,6 @@ export function Checkout() {
                   <div className="text-xs text-amber-600">Card, USSD & bank transfer payments will be available soon.</div>
                 </div>
               </label>
-              {/* Bank Transfer — Active */}
               <label className="flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition border-[#4A0E16] bg-[#4A0E16]/5">
                 <input type="radio" name="pm" checked readOnly className="mt-1 accent-[#4A0E16]"/>
                 <div className="flex-1">
@@ -269,9 +250,9 @@ export function Checkout() {
               <div className="mt-4 p-4 bg-[#F5F5F5] rounded-xl space-y-3 text-sm">
                 <h4 className="font-semibold text-[#4A0E16]">Bank Details</h4>
                 <div className="grid sm:grid-cols-2 gap-2 text-xs">
-                <div><strong>Bank:</strong> {BANK.bankName}</div>
-                <div><strong>Account Name:</strong> {BANK.accountName}</div>
-                <div><strong>Account Number:</strong> {BANK.accountNumber}</div>
+                  <div><strong>Bank:</strong> {BANK.bankName}</div>
+                  <div><strong>Account Name:</strong> {BANK.accountName}</div>
+                  <div><strong>Account Number:</strong> {BANK.accountNumber}</div>
                   <div><strong>Amount:</strong> {formatNGN(total)}</div>
                 </div>
                 <p className="text-xs text-gray-600">{BANK.reference}</p>
@@ -291,24 +272,27 @@ export function Checkout() {
             )}
           </div>
 
-          {/* OPTIONAL REFERRAL CODE (Change 3) */}
           <div className="bg-white border border-gray-100 rounded-2xl p-6">
-            <h3 className="font-display text-xl font-bold mb-2">Referral Code (Optional)</h3>
+            <h3 className="font-display text-xl font-bold mb-2">Referral Code <span className="text-red-500">*</span></h3>
             <label className="block">
               <span className="block text-xs text-gray-600 mb-2">
-                Enter the referral code of the Diamond Body member who introduced you (Optional)
+                Select the Nation or Leader who referred you. If you are a new customer, select "New Customer".
               </span>
-              <input
+              <select
+                required
                 value={referralCode}
                 onChange={(e) => setReferralCode(e.target.value)}
-                placeholder="e.g. REF-1234 (leave blank if none)"
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-[#4A0E16] text-sm"
-              />
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-[#4A0E16] text-sm bg-white"
+              >
+                <option value="NEW_CUSTOMER">New Customer (No Referral)</option>
+                {nations.map((n) => (
+                  <option key={n.id} value={n.slug}>{n.name}</option>
+                ))}
+              </select>
             </label>
           </div>
         </div>
 
-        {/* SUMMARY */}
         <div className="bg-white border border-gray-100 rounded-2xl p-6 h-fit lg:sticky lg:top-24">
           <h3 className="font-display text-xl font-bold mb-4">Order Summary</h3>
           <div className="space-y-3 max-h-64 overflow-y-auto mb-4">
@@ -320,10 +304,7 @@ export function Checkout() {
                     <img src={p.image} className="w-full h-full object-cover" alt=""/>
                     <span className="absolute top-0 right-0 bg-[#4A0E16] text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-bl-lg font-bold">{c.quantity}</span>
                   </div>
-                  <div className="flex-1">
-                    <div className="font-semibold text-xs">{p.name}</div>
-                    <div className="text-xs text-gray-500">{formatNGN(p.price)}</div>
-                  </div>
+                  <div className="flex-1"><div className="font-semibold text-xs">{p.name}</div><div className="text-xs text-gray-500">{formatNGN(p.price)}</div></div>
                   <div className="text-sm font-semibold">{formatNGN(p.price * c.quantity)}</div>
                 </div>
               );
@@ -331,24 +312,15 @@ export function Checkout() {
           </div>
 
           <div className="flex gap-2 mb-4">
-            <input
-              value={promo}
-              onChange={(e) => setPromo(e.target.value)}
-              placeholder="Promo code"
-              className="flex-1 px-4 py-2 rounded-full border border-gray-200 text-sm focus:outline-none focus:border-[#4A0E16]"
-            />
+            <input value={promo} onChange={(e) => setPromo(e.target.value)} placeholder="Promo code" className="flex-1 px-4 py-2 rounded-full border border-gray-200 text-sm focus:outline-none focus:border-[#4A0E16]"/>
             <button type="button" onClick={applyPromo} className="px-4 py-2 rounded-full bg-[#222] text-white text-sm font-semibold">Apply</button>
           </div>
 
           <div className="space-y-2 text-sm border-t border-gray-200 pt-4">
             <div className="flex justify-between"><span className="text-gray-600">Subtotal</span><span>{formatNGN(subtotal)}</span></div>
             <div className="flex justify-between">
-              <span className="text-gray-600">
-                {deliveryMethod === "Pickup Station" ? "Pickup" : "Delivery Fee"}
-              </span>
-              <span className={shipping === 0 ? "text-emerald-600 font-semibold" : ""}>
-                {shipping === 0 ? "FREE" : formatNGN(shipping)}
-              </span>
+              <span className="text-gray-600">{deliveryMethod === "Pickup Station" ? "Pickup" : "Delivery Fee"}</span>
+              <span className={shipping === 0 ? "text-emerald-600 font-semibold" : ""}>{shipping === 0 ? "FREE" : formatNGN(shipping)}</span>
             </div>
             {discount > 0 && <div className="flex justify-between text-emerald-600"><span>Discount ({appliedPromo?.code})</span><span>-{formatNGN(discount)}</span></div>}
             <div className="flex justify-between text-lg font-bold border-t border-gray-200 pt-3">
@@ -370,13 +342,7 @@ function Field({ label, value, onChange, type = "text", required, className }: {
   return (
     <label className={`block ${className || ""}`}>
       <span className="block text-xs font-semibold text-gray-700 mb-1">{label}{required && " *"}</span>
-      <input
-        type={type}
-        value={value}
-        required={required}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:border-[#4A0E16] text-sm"
-      />
+      <input type={type} value={value} required={required} onChange={(e) => onChange(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:border-[#4A0E16] text-sm"/>
     </label>
   );
 }
