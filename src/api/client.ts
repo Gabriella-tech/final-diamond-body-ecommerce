@@ -95,15 +95,13 @@ export async function apiFetch<T = unknown>(
     throw new ApiError(res.status, "Invalid response from server.", undefined, false);
   }
 
-  if (!json.success) {
+    if (!json.success) {
+    // If the token is invalid or expired, clear it so the user is forced to log in again.
     if (res.status === 401) {
       clearTokens();
     }
     throw new ApiError(res.status, json.message || "Request failed", (json as any).details, false);
   }
-
-  return json.data;
-}
 
 export async function apiUpload<T = unknown>(path: string, formData: FormData): Promise<T> {
   const headers: Record<string, string> = {};
