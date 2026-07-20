@@ -62,15 +62,9 @@ useEffect(() => {
   fetchMy();
 }, []);
 
-// Merge local + API orders
-const localOrders = orders.filter((o) => o.email === user.email || o.userId === user.id);
-const myOrders = useMemo(() => {
-  const allIds = new Set(apiOrders.map((o) => o.id));
-  const merged = [...apiOrders];
-  for (const o of localOrders) { if (!allIds.has(o.id)) merged.push(o); }
-  return merged;
-}, [localOrders, apiOrders]);
-
+  // Only show orders fetched from the backend API.
+  // This ensures the user sees their orders on ANY device.
+  const myOrders = apiOrders;
   
   const myWishlist = PRODUCTS.filter((p) => wishlist.includes(p.id));
 
