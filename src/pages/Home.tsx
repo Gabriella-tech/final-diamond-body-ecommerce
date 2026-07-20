@@ -29,8 +29,8 @@ export function Home() {
               </Badge>
               <h1 className="font-display text-4xl sm:text-5xl lg:text-7xl font-bold leading-[1.05] mb-6">
                 Getting your <span className="italic text-white/90">body</span><br/>
-                to<span className="text-white">its</span><br/>
-                ultimate <span className="text-white/80"> form.</span>
+                to its <span className="text-white"> ultimate </span><br/>
+                form.<span className="text-white/80"></span>
               </h1>
               <p className="text-lg text-white/80 mb-8 max-w-xl leading-relaxed">
                 Natural, science backed formulas for detox, digestion, energy, and lifelong vitality.

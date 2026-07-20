@@ -1,15 +1,9 @@
-// ============================================================================
-// Diamond Body — API Client (Production Hardened)
-// ============================================================================
-
 const PROD_FALLBACK = "https://the-diamond-body-backend.onrender.com/api/v1";
 
 const API_BASE =
   (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_API_URL) ||
   PROD_FALLBACK ||
   "http://localhost:5000/api/v1";
-
-console.log("[API] Using backend:", API_BASE);
 
 type ApiResponse<T = unknown> = {
   success: boolean;
@@ -31,8 +25,6 @@ class ApiError extends Error {
   }
 }
 
-// ---------- token storage ----------
-
 let accessToken: string | null = localStorage.getItem("db_access_token");
 let refreshToken: string | null = localStorage.getItem("db_refresh_token");
 
@@ -51,8 +43,6 @@ export function clearTokens() {
 }
 
 export function getAccessToken() { return accessToken; }
-
-// ---------- public fetch ----------
 
 export async function apiFetch<T = unknown>(
   path: string,
@@ -87,8 +77,15 @@ export async function apiFetch<T = unknown>(
         setTokens(refJson.data.accessToken, refJson.data.refreshToken);
         headers["Authorization"] = `Bearer ${accessToken}`;
         res = await fetch(fullUrl, { ...options, headers });
+      } else {
+        // If refresh fails, clear tokens and force re-login
+        clearTokens();
+        throw new ApiError(401, "Session expired. Please log in again.", undefined, false);
       }
-    } catch { }
+    } catch { 
+      clearTokens();
+      throw new ApiError(401, "Session expired. Please log in again.", undefined, false);
+    }
   }
 
   let json: ApiResponse<T>;
