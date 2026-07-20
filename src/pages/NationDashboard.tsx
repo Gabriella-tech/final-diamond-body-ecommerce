@@ -85,7 +85,6 @@ const myOrders = useMemo(() => {
 }, [orders, apiOrders, nationId, filter]);
 
 
-
   const paidOrders = myOrders.filter((o) => o.paymentStatus === "Paid");
   const revenue = paidOrders.reduce((s, o) => s + o.total, 0);
   const productsSold = myOrders.reduce((s, o) => s + o.items.reduce((a, i) => a + i.quantity, 0), 0);

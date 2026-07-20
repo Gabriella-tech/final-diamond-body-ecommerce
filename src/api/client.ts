@@ -99,6 +99,9 @@ export async function apiFetch<T = unknown>(
   }
 
   if (!json.success) {
+    if (res.status === 401) {
+      clearTokens();
+    }
     throw new ApiError(res.status, json.message || "Request failed", (json as any).details, false);
   }
 
