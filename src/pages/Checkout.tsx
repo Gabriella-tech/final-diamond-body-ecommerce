@@ -20,7 +20,6 @@ export function Checkout() {
   const activeStations = pickupStations.filter((p) => p.status === "active");
   const [pickupStationId, setPickupStationId] = useState<string>(activeStations[0]?.id || "");
 
-  // Referral Code is now mandatory with a default value
   const [referralCode, setReferralCode] = useState("NEW_CUSTOMER");
   const [showExistingMember, setShowExistingMember] = useState(false);
 
@@ -274,65 +273,60 @@ export function Checkout() {
           </div>
 
           {/* MANDATORY REFERRAL CODE */}
-<div className="bg-white border border-gray-100 rounded-2xl p-6">
-  <h3 className="font-display text-xl font-bold mb-2">Referral Code <span className="text-red-500">*</span></h3>
-  <label className="block">
-    <span className="block text-xs text-gray-600 mb-2">
-      Select if you are a new customer or an existing member.
-    </span>
-    <select
-      required
-      value={referralCode}
-      onChange={(e) => {
-        const val = e.target.value;
-        setReferralCode(val);
-        setShowExistingMember(val === "EXISTING_MEMBER");
-        if (val === "NEW_CUSTOMER") {
-          // If they switch back to New Customer, reset the code
-          setReferralCode("NEW_CUSTOMER");
-        }
-      }}
-      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-[#4A0E16] text-sm bg-white"
-    >
-      <option value="NEW_CUSTOMER">New Customer (No Referral)</option>
-      <option value="EXISTING_MEMBER">Existing Member</option>
-    </select>
-  </label>
+          <div className="bg-white border border-gray-100 rounded-2xl p-6">
+            <h3 className="font-display text-xl font-bold mb-2">Referral Code <span className="text-red-500">*</span></h3>
+            <label className="block">
+              <span className="block text-xs text-gray-600 mb-2">
+                Select if you are a new customer or an existing member.
+              </span>
+              <select
+                required
+                value={referralCode}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setReferralCode(val);
+                  setShowExistingMember(val === "EXISTING_MEMBER");
+                  if (val === "NEW_CUSTOMER") {
+                    setReferralCode("NEW_CUSTOMER");
+                  }
+                }}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-[#4A0E16] text-sm bg-white"
+              >
+                <option value="NEW_CUSTOMER">New Customer (No Referral)</option>
+                <option value="EXISTING_MEMBER">Existing Member</option>
+              </select>
+            </label>
 
-  {/* Conditional Field for Existing Members */}
-  {showExistingMember && (
-    <div className="mt-4 space-y-4 border-t border-gray-100 pt-4">
-      <label className="block">
-        <span className="block text-xs text-gray-600 mb-2">Select Nation</span>
-        <select
-          required
-          // We store the slug in referralCode when they pick a nation
-          value={referralCode === "EXISTING_MEMBER" ? "" : referralCode}
-          onChange={(e) => setReferralCode(e.target.value)}
-          className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-[#4A0E16] text-sm bg-white"
-        >
-          <option value="">— Select Nation —</option>
-          {nations.map((n) => (
-            <option key={n.id} value={n.slug}>{n.name}</option>
-          ))}
-        </select>
-      </label>
-      <label className="block">
-        <span className="block text-xs text-gray-600 mb-2">Enter Referral Code</span>
-        <input
-          type="text"
-          required
-          placeholder="e.g. TUNDE001"
-          // We need a separate state for the actual code text if the user selects a nation
-          // For simplicity in this fix, we assume the 'referralCode' state holds the code when 'showExistingMember' is true and a nation is selected.
-          // A more robust solution would use a separate state variable for the code text.
-          onChange={(e) => setReferralCode(e.target.value)} 
-          className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-[#4A0E16] text-sm"
-        />
-      </label>
-    </div>
-  )}
-</div>
+            {showExistingMember && (
+              <div className="mt-4 space-y-4 border-t border-gray-100 pt-4">
+                <label className="block">
+                  <span className="block text-xs text-gray-600 mb-2">Select Nation</span>
+                  <select
+                    required
+                    value={referralCode === "EXISTING_MEMBER" ? "" : referralCode}
+                    onChange={(e) => setReferralCode(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-[#4A0E16] text-sm bg-white"
+                  >
+                    <option value="">— Select Nation —</option>
+                    {nations.map((n) => (
+                      <option key={n.id} value={n.slug}>{n.name}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="block text-xs text-gray-600 mb-2">Enter Referral Code</span>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. TUNDE001"
+                    onChange={(e) => setReferralCode(e.target.value)} 
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-[#4A0E16] text-sm"
+                  />
+                </label>
+              </div>
+            )}
+          </div>
+        </div>
 
         <div className="bg-white border border-gray-100 rounded-2xl p-6 h-fit lg:sticky lg:top-24">
           <h3 className="font-display text-xl font-bold mb-4">Order Summary</h3>
