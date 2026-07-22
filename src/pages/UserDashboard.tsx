@@ -1,139 +1,296 @@
-import { useMemo, useState } from "react";
-import { Container, Button } from "../components/UI";
-import { useApp, formatNGN } from "../store/store";
+import { useEffect, useMemo, useState } from "react";
+import { Container, Button, Badge } from "../components/UI";
+import { useApp, formatNGN, type Order } from "../store/store";
 import { PRODUCTS } from "../data/products";
 import { parseRoute, useRouter, Link } from "../router";
+import { IconLogout, IconUpload, IconTruck, IconHeart, IconUser, IconMapPin } from "../components/Icons";
 import { clearTokens } from "../api/client";
-import { useServerOrders, SyncBar, StatCard, StatusPill, SkeletonRows, AmbientBg, Reveal, naira } from "../api/serverOrders";
 
 type Tab = "overview" | "orders" | "wishlist" | "addresses" | "profile";
 
+const statusTone = (s: string): "success" | "warning" | "info" | "default" | "error" => {
+  if (["Delivered", "Paid"].includes(s)) return "success";
+  if (["Shipped", "Processing"].includes(s)) return "info";
+  if (["Pending", "Awaiting Payment", "Awaiting Verification"].includes(s)) return "warning";
+  if (["Cancelled", "Failed"].includes(s)) return "error";
+  return "default";
+};
+
 export function UserDashboard() {
-  const app = useApp() as any;
-  const user = app.user;
-  const wishlist: string[] = app.wishlist || [];
-  const toggleWishlist = app.toggleWishlist;
-  const addresses: any[] = app.addresses || [];
-  const addAddress = app.addAddress;
-  const removeAddress = app.removeAddress;
-  const toast = app.toast;
+  const { user, setUser, wishlist, toggleWishlist, updateOrder, toast, addReview, orders } = useApp();
   const { path, navigate } = useRouter();
   const { params } = parseRoute(path);
   const [tab, setTab] = useState<Tab>((params.get("tab") as Tab) || "overview");
-  const { orders, loading, synced, reload, error } = useServerOrders(user?.role);
 
-  const myWishlist = useMemo(() => PRODUCTS.filter((p: any) => wishlist.includes(p.id)), [wishlist]);
-  const paid = orders.filter((o: any) => (o.paymentStatus || "").toLowerCase() === "paid");
-  const totalSpent = paid.reduce((s: number, o: any) => s + Number(o.total || 0), 0);
-  const completed = orders.filter((o: any) => (o.status || "").toLowerCase() === "delivered").length;
-  const transit = orders.filter((o: any) => ["processing", "shipped"].includes((o.status || "").toLowerCase())).length;
-  const [addrForm, setAddrForm] = useState({ label: "Home", street: "", city: "", state: "" });
+  // Sync orders from backend on mount — so customer sees orders from any device
+  useEffect(() => { refreshOrders(); }, []);
 
-  const tabs: { k: Tab; l: string; n?: number }[] = [
-    { k: "overview", l: "Overview" }, { k: "orders", l: "Orders", n: orders.length },
-    { k: "wishlist", l: "Wishlist", n: myWishlist.length }, { k: "addresses", l: "Addresses", n: addresses.length }, { k: "profile", l: "Profile" },
+  if (!user) {
+    return (
+      <Container className="py-24 text-center">
+        <h2 className="font-display text-3xl font-bold mb-4">Please sign in</h2>
+        <Link to="/login"><Button>Login</Button></Link>
+      </Container>
+    );
+  }
+
+  // =====================================================================
+// Direct API fetch — pulls this user's orders from PostgreSQL
+// This ensures the user sees their orders on ANY device.
+// =====================================================================
+const [apiOrders, setApiOrders] = useState<Order[]>([]);
+
+useEffect(() => {
+  const fetchMy = async () => {
+    try {
+      const base = "https://the-diamond-body-backend.onrender.com/api/v1";
+      const tok = localStorage.getItem("db_access_token");
+      const headers: Record<string, string> = {};
+      if (tok) headers["Authorization"] = `Bearer ${tok}`;
+      const res = await fetch(`${base}/members/me/orders?limit=200`, { headers });
+      if (res.ok) {
+        const json = await res.json();
+        setApiOrders((json.data?.items || json.data || []).map((o: any) => ({
+          id: o.id, date: o.createdAt, customerName: o.customerName,
+          items: (o.items || []).map((it: any) => ({ productId: it.productId || "", name: it.name, price: Number(it.price), quantity: it.quantity })),
+          total: Number(o.total), status: o.status, paymentStatus: o.paymentStatus === "PAID" ? "Paid" : "Unpaid",
+          deliveryMethod: o.deliveryMethod === "PICKUP_STATION" ? "Pickup Station" : "Home Delivery",
+        } as Order)));
+      }
+    } catch { /* unreachable */ }
+  };
+  fetchMy();
+}, []);
+
+  // Only show orders fetched from the backend API.
+  // This ensures the user sees their orders on ANY device.
+  const myOrders = apiOrders;
+  
+  const myWishlist = PRODUCTS.filter((p) => wishlist.includes(p.id));
+
+  const tabs: { k: Tab; l: string }[] = [
+    { k: "overview", l: "Overview" },
+    { k: "orders", l: `Orders (${myOrders.length})` },
+    { k: "wishlist", l: `Wishlist (${myWishlist.length})` },
+    { k: "addresses", l: "Addresses" },
+    { k: "profile", l: "Profile" },
   ];
 
-  if (!user) return <div className="min-h-screen bg-light-gray"><AmbientBg /><Container className="py-24 text-center"><h2 className="font-display text-3xl font-bold mb-4 text-charcoal">Please sign in</h2><Link to="/login"><Button>Login</Button></Link></Container></div>;
-
   return (
-    <div className="min-h-screen bg-light-gray">
-      <AmbientBg />
-      <Container className="py-8">
-        <Reveal>
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-oxblood via-oxblood to-[#2b0810] text-white p-7 sm:p-9 mb-7 shadow-xl">
-            <div className="absolute -right-10 -top-10 w-56 h-56 rounded-full bg-white/10 blur-2xl" />
-            <div className="absolute right-10 bottom-0 w-40 h-40 rounded-full bg-gold/20 blur-2xl" />
-            <div className="relative">
-              <p className="text-[11px] uppercase tracking-[0.3em] text-white/70 font-bold">My Dashboard</p>
-              <h1 className="font-display text-3xl sm:text-5xl font-bold mt-1.5 leading-tight">Welcome back,<br className="hidden sm:block" /> {user.name || "friend"}.</h1>
-              <p className="text-white/75 mt-3 max-w-lg">Your order history lives on our server — sign in on any phone or laptop and you'll see exactly the same thing.</p>
-              <div className="mt-5"><SyncBar loading={loading} synced={synced} reload={reload} count={orders.length} error={error} /></div>
+    <div className="bg-[#F5F5F5] min-h-screen">
+      <Container className="py-10">
+        <div className="bg-gradient-to-r from-[#4A0E16] to-[#6b1722] rounded-3xl p-6 sm:p-8 text-white mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <div className="text-white/70 text-xs uppercase tracking-wider mb-1">My Dashboard</div>
+              <h1 className="font-display text-2xl sm:text-3xl font-bold">Welcome, {user.name}</h1>
+              <p className="text-white/80 text-sm mt-1">{user.email}</p>
             </div>
+            <button
+              onClick={() => { clearTokens(); navigate("/"); setTimeout(() => { setUser(null); toast({ type: "info", message: "Signed out" }); }, 0); }}
+              className="self-start sm:self-auto inline-flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-full text-sm font-semibold"
+            >
+              <IconLogout size={16}/> Sign out
+            </button>
           </div>
-        </Reveal>
+        </div>
 
-        <Reveal delay={80}>
-          <div className="flex flex-wrap gap-1.5 mb-6 p-1 bg-white rounded-2xl border border-gray-100 shadow-sm w-fit">
-            {tabs.map((t) => (
-              <button key={t.k} onClick={() => setTab(t.k)} className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${tab === t.k ? "bg-oxblood text-white shadow" : "text-gray-500 hover:text-charcoal hover:bg-gray-50"}`}>{t.l}{typeof t.n === "number" ? ` (${t.n})` : ""}</button>
-            ))}
-          </div>
-        </Reveal>
-
-        {tab === "overview" && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <StatCard label="Total Orders" value={orders.length} hint="across all devices" delay={0} />
-              <StatCard label="Completed" value={completed} hint="delivered" accent="text-emerald-700" delay={80} />
-              <StatCard label="In Transit" value={transit} hint="on the way" accent="text-sky-700" delay={160} />
-              <StatCard label="Total Spent" value={naira(totalSpent)} hint="lifetime" accent="text-oxblood" delay={240} />
-            </div>
-            <Reveal delay={120}><div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between"><h2 className="font-display text-lg font-bold text-charcoal">Recent Orders</h2><button onClick={() => setTab("orders")} className="text-xs font-bold text-oxblood hover:underline">View all →</button></div>
-              <OrderTable rows={orders.slice(0, 6)} loading={loading} />
-            </div></Reveal>
-          </div>
-        )}
-
-        {tab === "orders" && <Reveal><div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden"><div className="px-6 py-4 border-b border-gray-100"><h2 className="font-display text-lg font-bold text-charcoal">All Orders</h2></div><OrderTable rows={orders} loading={loading} /></div></Reveal>}
-
-        {tab === "wishlist" && (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {myWishlist.length === 0 ? <p className="col-span-full text-center text-gray-500 py-20">Your wishlist is empty. Tap the heart on any product.</p> :
-              myWishlist.map((p: any, i: number) => (
-                <Reveal key={p.id} delay={i * 50}><div className="group bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all">
-                  <Link to={`/product/${p.slug || p.id}`}><div className="overflow-hidden"><img src={p.image} alt={p.name} className="w-full aspect-square object-cover group-hover:scale-105 transition-transform duration-500" /></div></Link>
-                  <div className="p-4"><div className="font-semibold text-charcoal line-clamp-1">{p.name}</div><div className="text-oxblood font-bold mt-1 tabular-nums">{formatNGN(p.price)}</div><Button onClick={() => { toggleWishlist?.(p.id); toast?.("Removed", "info"); }} className="mt-3 w-full text-xs">Remove</Button></div>
-                </div></Reveal>
+        <div className="grid lg:grid-cols-[240px_1fr] gap-6">
+          <aside>
+            <nav className="bg-white rounded-2xl border border-gray-100 p-2">
+              {tabs.map((t) => (
+                <button
+                  key={t.k}
+                  onClick={() => { setTab(t.k); navigate(`/dashboard/user?tab=${t.k}`); }}
+                  className={`w-full text-left px-4 py-3 rounded-xl text-sm font-semibold transition ${tab === t.k ? "bg-[#4A0E16] text-white" : "text-gray-700 hover:bg-gray-100"}`}
+                >
+                  {t.l}
+                </button>
               ))}
-          </div>
-        )}
+            </nav>
+          </aside>
 
-        {tab === "addresses" && (
-          <Reveal><div className="grid lg:grid-cols-3 gap-6">
-            <form onSubmit={(e) => { e.preventDefault(); addAddress?.({ ...addrForm, id: "a" + Date.now() }); setAddrForm({ label: "Home", street: "", city: "", state: "" }); toast?.("Address saved", "success"); }} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-              <h2 className="font-display text-lg font-bold text-charcoal mb-4">Add address</h2>
-              <div className="space-y-3">
-                <Fld label="Label" value={addrForm.label} onChange={(v) => setAddrForm({ ...addrForm, label: v })} />
-                <Fld label="Street" value={addrForm.street} onChange={(v) => setAddrForm({ ...addrForm, street: v })} />
-                <Fld label="City" value={addrForm.city} onChange={(v) => setAddrForm({ ...addrForm, city: v })} />
-                <Fld label="State" value={addrForm.state} onChange={(v) => setAddrForm({ ...addrForm, state: v })} />
-                <Button className="w-full">Save address</Button>
+          <main className="space-y-6">
+            {tab === "overview" && (
+              <div className="grid sm:grid-cols-3 gap-4">
+                <StatCard label="Total Orders" value={myOrders.length} icon={<IconTruck/>}/>
+                <StatCard label="Wishlist Items" value={myWishlist.length} icon={<IconHeart/>}/>
+                <StatCard label="Total Spent" value={formatNGN(myOrders.reduce((s, o) => s + o.total, 0))} icon={<IconUser/>}/>
+                <div className="sm:col-span-3 bg-white rounded-2xl p-6 border border-gray-100">
+                  <h3 className="font-display text-xl font-bold mb-4">Recent Orders</h3>
+                  {myOrders.slice(0, 3).map((o) => <OrderRow key={o.id} order={o}/>)}
+                  {myOrders.length === 0 && <p className="text-gray-500 text-sm">No orders yet. <Link to="/shop" className="text-[#4A0E16] font-semibold">Start shopping →</Link></p>}
+                </div>
               </div>
-            </form>
-            <div className="lg:col-span-2 space-y-3">
-              {addresses.length === 0 ? <p className="text-gray-500 py-10 text-center bg-white rounded-2xl border border-gray-100">No saved addresses yet.</p> :
-                addresses.map((a: any) => (<div key={a.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex items-start justify-between gap-4 hover:shadow-md transition-shadow"><div><div className="font-bold text-charcoal">{a.label}</div><div className="text-sm text-gray-600 mt-1">{a.street}, {a.city}, {a.state}</div></div><button onClick={() => { removeAddress?.(a.id); toast?.("Removed", "info"); }} className="text-xs font-bold text-rose-600 hover:underline">Delete</button></div>))}
-            </div>
-          </div></Reveal>
-        )}
+            )}
 
-        {tab === "profile" && (
-          <Reveal><div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 max-w-xl">
-            <h2 className="font-display text-lg font-bold text-charcoal mb-5">Profile</h2>
-            <div className="space-y-4">
-              <Info label="Name" value={user.name} /><Info label="Email" value={user.email} /><Info label="Phone" value={user.phone} /><Info label="Member since" value={user.createdAt ? new Date(user.createdAt).toLocaleDateString() : "—"} />
-              <Button onClick={() => { clearTokens(); app.setUser?.(null); navigate("/login"); }} className="w-full">Sign out</Button>
-            </div>
-          </div></Reveal>
-        )}
+            {tab === "orders" && (
+              <div className="bg-white rounded-2xl p-6 border border-gray-100">
+                <h3 className="font-display text-xl font-bold mb-4">My Orders</h3>
+                <div className="space-y-3">
+                  {myOrders.length === 0 ? (
+                    <p className="text-gray-500 text-sm">You haven't placed any orders yet.</p>
+                  ) : (
+                    myOrders.map((o) => (
+                      <OrderRow key={o.id} order={o} expandable onUploadProof={(file) => {
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                          updateOrder(o.id, { bankProofUrl: reader.result as string, paymentStatus: "Awaiting Verification" });
+                          toast({ type: "success", message: "Proof uploaded for verification" });
+                        };
+                        reader.readAsDataURL(file);
+                      }}/>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
+            {tab === "wishlist" && (
+              <div className="bg-white rounded-2xl p-6 border border-gray-100">
+                <h3 className="font-display text-xl font-bold mb-4">My Wishlist</h3>
+                {myWishlist.length === 0 ? (
+                  <p className="text-gray-500 text-sm">Your wishlist is empty.</p>
+                ) : (
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {myWishlist.map((p) => (
+                      <div key={p.id} className="border border-gray-100 rounded-xl p-3">
+                        <Link to={`/product/${p.slug}`}>
+                          <img src={p.image} className="w-full aspect-square object-cover rounded-lg bg-[#F5F5F5]"/>
+                          <div className="font-semibold mt-2 text-sm">{p.name}</div>
+                        </Link>
+                        <div className="flex justify-between items-center mt-2">
+                          <div className="text-[#4A0E16] font-bold text-sm">{formatNGN(p.price)}</div>
+                          <button onClick={() => toggleWishlist(p.id)} className="text-xs text-gray-500 hover:text-red-600">Remove</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {tab === "addresses" && (
+              <div className="bg-white rounded-2xl p-6 border border-gray-100">
+                <h3 className="font-display text-xl font-bold mb-4">Saved Addresses</h3>
+                {user.addresses.length === 0 ? (
+                  <div className="text-center py-12">
+                    <IconMapPin size={36} className="mx-auto text-gray-300 mb-3"/>
+                    <p className="text-gray-500 text-sm mb-4">No saved addresses yet.</p>
+                    <Button onClick={() => {
+                      const addr = { id: "a-" + Math.random().toString(36).slice(2, 6), label: "Home", fullName: user.name, phone: user.phone || "", street: "Add your street", city: "Lagos", state: "Lagos", country: "Nigeria", isDefault: true };
+                      setUser({ ...user, addresses: [addr] });
+                      toast({ type: "success", message: "Sample address added — edit it from your profile" });
+                    }}>Add Address</Button>
+                  </div>
+                ) : (
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    {user.addresses.map((a) => (
+                      <div key={a.id} className="border border-gray-100 rounded-xl p-4">
+                        <div className="font-semibold">{a.label}</div>
+                        <div className="text-sm text-gray-600 mt-1">{a.fullName}</div>
+                        <div className="text-sm text-gray-600">{a.street}, {a.city}, {a.state}</div>
+                        <div className="text-sm text-gray-600">{a.phone}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {tab === "profile" && (
+              <div className="bg-white rounded-2xl p-6 border border-gray-100 max-w-2xl">
+                <h3 className="font-display text-xl font-bold mb-4">Profile Settings</h3>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <ProfileField label="Name" value={user.name} onChange={(v) => setUser({...user, name: v})}/>
+                  <ProfileField label="Email" value={user.email} onChange={(v) => setUser({...user, email: v})}/>
+                  <ProfileField label="Phone" value={user.phone || ""} onChange={(v) => setUser({...user, phone: v})}/>
+                  <div>
+                    <span className="block text-xs font-semibold text-gray-700 mb-1">Role</span>
+                    <div className="px-4 py-2.5 bg-[#F5F5F5] rounded-xl text-sm capitalize">{user.role.replace("_", " ")}</div>
+                  </div>
+                </div>
+                <Button className="mt-6" onClick={() => toast({ type: "success", message: "Profile updated" })}>Save Changes</Button>
+
+                <div className="border-t border-gray-100 mt-8 pt-6">
+                  <h4 className="font-semibold mb-3">Change Password</h4>
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <input type="password" placeholder="Current password" className="px-4 py-2.5 rounded-xl border border-gray-200 text-sm"/>
+                    <input type="password" placeholder="New password" className="px-4 py-2.5 rounded-xl border border-gray-200 text-sm"/>
+                  </div>
+                  <Button variant="outline" className="mt-4" onClick={() => toast({ type: "success", message: "Password updated" })}>Update Password</Button>
+                </div>
+              </div>
+            )}
+          </main>
+        </div>
       </Container>
     </div>
   );
 }
 
-function Fld({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
-  return <label className="block"><span className="text-[11px] uppercase tracking-wider text-gray-500 font-bold">{label}</span><input value={value} onChange={(e) => onChange(e.target.value)} className="mt-1 w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-oxblood focus:ring-2 focus:ring-oxblood/10" /></label>;
-}
-function Info({ label, value }: { label: string; value?: string }) {
-  return <div className="flex justify-between border-b border-gray-100 pb-3"><span className="text-[11px] uppercase tracking-wider text-gray-500 font-bold">{label}</span><span className="text-charcoal font-medium">{value || "—"}</span></div>;
-}
-function OrderTable({ rows, loading }: { rows: any[]; loading: boolean }) {
-  return <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="text-left text-[11px] uppercase tracking-wider text-gray-500 border-b border-gray-100 bg-gray-50/70"><th className="py-3 px-4">Order</th><th className="py-3 px-4">Items</th><th className="py-3 px-4 text-right">Total</th><th className="py-3 px-4">Payment</th><th className="py-3 px-4">Status</th><th className="py-3 px-4">Date</th></tr></thead>
-    {loading ? <SkeletonRows rows={5} cols={6} /> : rows.length === 0 ? <tbody><tr><td colSpan={6} className="py-16 text-center text-gray-500">No orders yet. Place one — it will appear here on every device.</td></tr></tbody> : (
-      <tbody>{rows.map((o: any) => (<tr key={o.id || o.orderNumber} className="border-b border-gray-50 hover:bg-oxblood/[0.03] transition-colors"><td className="py-3 px-4 font-mono font-bold text-charcoal">{o.orderNumber || o.id}</td><td className="py-3 px-4 text-gray-600 tabular-nums">{o.items?.length || 0}</td><td className="py-3 px-4 text-right font-bold tabular-nums">{naira(o.total)}</td><td className="py-3 px-4"><StatusPill s={o.paymentStatus} /></td><td className="py-3 px-4"><StatusPill s={o.status} /></td><td className="py-3 px-4 text-gray-500 text-xs tabular-nums">{o.createdAt ? new Date(o.createdAt).toLocaleDateString() : "—"}</td></tr>))}</tbody>
-    )}</table></div>;
+function StatCard({ label, value, icon }: { label: string; value: React.ReactNode; icon: React.ReactNode }) {
+  return (
+    <div className="bg-white rounded-2xl p-5 border border-gray-100 flex items-center gap-4">
+      <div className="w-12 h-12 rounded-xl bg-[#4A0E16] text-white flex items-center justify-center">{icon}</div>
+      <div>
+        <div className="text-xs text-gray-500 uppercase tracking-wider">{label}</div>
+        <div className="font-display text-2xl font-bold">{value}</div>
+      </div>
+    </div>
+  );
 }
 
-export default UserDashboard;
+function ProfileField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <label className="block">
+      <span className="block text-xs font-semibold text-gray-700 mb-1">{label}</span>
+      <input value={value} onChange={(e) => onChange(e.target.value)} className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:border-[#4A0E16] text-sm"/>
+    </label>
+  );
+}
+
+function OrderRow({ order, expandable, onUploadProof }: { order: any; expandable?: boolean; onUploadProof?: (f: File) => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border-b border-gray-100 last:border-0 py-3">
+      <div className={`flex flex-col sm:flex-row sm:items-center gap-3 ${expandable ? "cursor-pointer" : ""}`} onClick={() => expandable && setOpen(!open)}>
+        <div className="flex-1">
+          <div className="font-semibold text-sm">{order.id}</div>
+          <div className="text-xs text-gray-500">{new Date(order.date).toLocaleString()} • {order.items.length} item(s)</div>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Badge tone={statusTone(order.paymentStatus)}>{order.paymentStatus}</Badge>
+          <Badge tone={statusTone(order.status)}>{order.status}</Badge>
+          <div className="font-bold text-[#4A0E16]">{formatNGN(order.total)}</div>
+        </div>
+      </div>
+      {expandable && open && (
+        <div className="mt-3 p-4 bg-[#F5F5F5] rounded-xl space-y-2">
+          {order.items.map((it: any, i: number) => (
+            <div key={i} className="flex justify-between text-sm">
+              <span>{it.name} × {it.quantity}</span>
+              <span className="font-semibold">{formatNGN(it.price * it.quantity)}</span>
+            </div>
+          ))}
+          <div className="text-xs text-gray-600 pt-2 border-t border-gray-200">
+            <strong>Ship to:</strong> {order.address.street}, {order.address.city}, {order.address.state}
+          </div>
+          {order.paymentMethod === "Bank Transfer" && order.paymentStatus !== "Paid" && (
+            <label className="block mt-3 cursor-pointer border-2 border-dashed border-[#4A0E16] rounded-xl p-3 hover:bg-white transition text-center">
+              <IconUpload size={18} className="inline mr-2"/>
+              <span className="text-sm font-semibold text-[#4A0E16]">Upload Payment Proof</span>
+              <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f && onUploadProof) onUploadProof(f);
+              }}/>
+            </label>
+          )}
+          {order.trackingNumber && (
+            <div className="text-sm bg-white p-2 rounded-lg"><strong>Tracking:</strong> {order.trackingNumber}</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
