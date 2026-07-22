@@ -14,7 +14,7 @@ type Tab = "overview" | "orders" | "nations" | "pickup" | "products" | "subscrib
 
 export function AdminDashboard({ superAdmin = false }: { superAdmin?: boolean }) {
   const {
-    user, setUser, orders, nations, pickupStations, subscribers,
+    user, setUser, nations, pickupStations, subscribers,
     updateOrder, addPickupStation, updatePickupStation, deletePickupStation, toast,
   } = useApp();
   const { navigate } = useRouter();
@@ -27,51 +27,46 @@ export function AdminDashboard({ superAdmin = false }: { superAdmin?: boolean })
   const [apiOrders, setApiOrders] = useState<Order[]>([]);
 
   const fetchOrdersFromBackend = async () => {
-  try {
-    const base = "https://the-diamond-body-backend.onrender.com/api/v1";
-    const tok = localStorage.getItem("db_access_token");
-    const headers: Record<string, string> = {};
-    if (tok) headers["Authorization"] = `Bearer ${tok}`;
-    const res = await fetch(`${base}/admin/orders?limit=500`, { headers });
-    if (res.ok) {
-      const json = await res.json();
-      const list: Order[] = (json.data?.items || []).map((o: any) => ({
-        id: o.id, date: o.createdAt,
-        userId: o.userId || "", customerName: o.customerName, email: o.email, phone: o.phone,
-        address: { id: "", label: "Shipping", fullName: o.customerName, phone: o.phone, street: o.shippingStreet || "", city: o.shippingCity || "", state: o.shippingState || "", country: o.shippingCountry || "Nigeria" },
-        items: (o.items || []).map((it: any) => ({ productId: it.productId || "", name: it.name, price: Number(it.price), quantity: it.quantity })),
-        total: Number(o.total), shippingFee: Number(o.shippingFee || 0), discount: Number(o.discount || 0),
-        promoCode: o.promoCode || undefined,
-        paymentMethod: o.paymentMethod === "BANK_TRANSFER" ? "Bank Transfer" : "Paystack",
-        paymentStatus: o.paymentStatus === "AWAITING_VERIFICATION" ? "Awaiting Verification" : o.paymentStatus === "PAID" ? "Paid" : "Unpaid",
-        paystackReference: o.paystackReference || undefined,
-        bankProofUrl: (o.paymentProofs && o.paymentProofs.length > 0) ? o.paymentProofs[0].fileUrl : undefined,
-        status: o.status,
-        nationId: o.nationId || undefined, nationName: o.nationName || undefined, nationSlug: o.nationSlug || undefined,
-        referralCode: o.referralCode || undefined,
-        deliveryMethod: o.deliveryMethod === "PICKUP_STATION" ? "Pickup Station" : "Home Delivery",
-        pickupStationId: o.pickupStationId || undefined, pickupStationName: o.pickupStationName || undefined,
-        trackingNumber: o.trackingNumber || undefined,
-      }));
-      setApiOrders(list);
+    try {
+      const base = "https://the-diamond-body-backend.onrender.com/api/v1";
+      const tok = localStorage.getItem("db_access_token");
+      const headers: Record<string, string> = {};
+      if (tok) headers["Authorization"] = `Bearer ${tok}`;
+      const res = await fetch(`${base}/admin/orders?limit=500`, { headers });
+      if (res.ok) {
+        const json = await res.json();
+        const list: Order[] = (json.data?.items || []).map((o: any) => ({
+          id: o.id, date: o.createdAt,
+          userId: o.userId || "", customerName: o.customerName, email: o.email, phone: o.phone,
+          address: { id: "", label: "", fullName: o.customerName, phone: o.phone, street: o.shippingStreet || "", city: o.shippingCity || "", state: o.shippingState || "", country: o.shippingCountry || "Nigeria" },
+          items: (o.items || []).map((it: any) => ({ productId: it.productId || "", name: it.name, price: Number(it.price), quantity: it.quantity })),
+          total: Number(o.total), shippingFee: Number(o.shippingFee || 0), discount: Number(o.discount || 0),
+          promoCode: o.promoCode || undefined,
+          paymentMethod: o.paymentMethod === "BANK_TRANSFER" ? "Bank Transfer" : "Paystack",
+          paymentStatus: o.paymentStatus === "AWAITING_VERIFICATION" ? "Awaiting Verification" : o.paymentStatus === "PAID" ? "Paid" : "Unpaid",
+          paystackReference: o.paystackReference || undefined,
+          bankProofUrl: (o.paymentProofs && o.paymentProofs.length > 0) ? o.paymentProofs[0].fileUrl : undefined,
+          status: o.status,
+          nationId: o.nationId || undefined, nationName: o.nationName || undefined, nationSlug: o.nationSlug || undefined,
+          referralCode: o.referralCode || undefined,
+          deliveryMethod: o.deliveryMethod === "PICKUP_STATION" ? "Pickup Station" : "Home Delivery",
+          pickupStationId: o.pickupStationId || undefined, pickupStationName: o.pickupStationName || undefined,
+          trackingNumber: o.trackingNumber || undefined,
+        }));
+        setApiOrders(list);
+      } else if (res.status === 401) {
+        clearTokens();
+        console.error("Authentication failed (401). Please log in again.");
+      }
+    } catch (error) {
+      console.error("Error fetching orders from backend:", error);
     }
-  } catch (error) {
-    console.error("Error fetching orders from backend:", error);
-  }
-};
+  };
 
   useEffect(() => { fetchOrdersFromBackend(); }, []);
-  useEffect(() => {
-    // Also merge app-state orders (from checkout placeOrder) into the API list
-    setApiOrders((prev) => {
-      const existingIds = new Set(prev.map((o) => o.id));
-      const newLocal = orders.filter((o) => !existingIds.has(o.id));
-      return newLocal.length > 0 ? [...newLocal, ...prev] : prev;
-    });
-  }, [orders]);
 
-  // Stats computed from apiOrders (the source of truth)
-  const displayOrders = apiOrders.length > 0 ? apiOrders : orders;
+  const displayOrders = apiOrders.length > 0 ? apiOrders : [];
+  
   const stats = useMemo(() => {
     const total = displayOrders.reduce((s, o) => s + o.total, 0);
     const paid = displayOrders.filter((o) => o.paymentStatus === "Paid");
@@ -151,7 +146,7 @@ export function AdminDashboard({ superAdmin = false }: { superAdmin?: boolean })
 
   const tabs: { k: Tab; l: string }[] = [
     { k: "overview", l: "Overview" },
-            { k: "orders", l: `Orders (${displayOrders.length})` },
+    { k: "orders", l: `Orders (${displayOrders.length})` },
     { k: "nations", l: `Nations (${NATIONS.length})` },
     { k: "pickup", l: `Pickup Stations (${pickupStations.length})` },
     { k: "products", l: `Products (${PRODUCTS.length})` },
@@ -214,7 +209,6 @@ export function AdminDashboard({ superAdmin = false }: { superAdmin?: boolean })
                   </div>
                 </div>
 
-                {/* EXCEL EXPORT — Admin sees ALL orders */}
                 <div className="bg-white rounded-2xl border-2 border-[#4A0E16]/20 p-6">
                   <div className="flex items-center gap-3 mb-4">
                     <div className="w-10 h-10 rounded-xl bg-[#4A0E16] text-white flex items-center justify-center">
@@ -402,10 +396,8 @@ export function AdminDashboard({ superAdmin = false }: { superAdmin?: boolean })
 
             {tab === "settings" && (
               <div className="space-y-6 max-w-3xl">
-                {/* —— Bank Details —— */}
                 <div className="bg-white rounded-2xl border border-gray-100 p-6">
                   <h3 className="font-display text-xl font-bold mb-4">Bank Details</h3>
-                  <p className="text-xs text-gray-500 mb-4">These appear on the checkout page for bank transfer payments.</p>
                   <div className="space-y-3">
                     {[
                       ["Bank Name", "Zenith Bank"],
@@ -422,13 +414,11 @@ export function AdminDashboard({ superAdmin = false }: { superAdmin?: boolean })
                   <Button className="mt-6" onClick={() => toast({ type: "success", message: "Bank details saved" })}>Save Bank Details</Button>
                 </div>
 
-                {/* —— Delivery Fees —— */}
                 <div className="bg-white rounded-2xl border border-gray-100 p-6">
                   <h3 className="font-display text-xl font-bold mb-4">Delivery Fees</h3>
-                  <p className="text-xs text-gray-500 mb-4">Configure the shipping charges for customers.</p>
                   <div className="space-y-3">
                     {[
-                      ["Home Delivery Fee (₦)", "2500"],
+                      ["Home Delivery Fee (₦)", "5000"],
                       ["Pickup Station Fee (₦)", "0"],
                     ].map(([k, v]) => (
                       <div key={k} className="grid grid-cols-[220px_1fr] gap-3 items-center">
@@ -440,7 +430,6 @@ export function AdminDashboard({ superAdmin = false }: { superAdmin?: boolean })
                   <Button className="mt-6" onClick={() => toast({ type: "success", message: "Delivery fees updated" })}>Save Delivery Fees</Button>
                 </div>
 
-                {/* —— Paystack (Coming Soon) —— */}
                 <div className="bg-white rounded-2xl border border-amber-200 bg-amber-50/50 p-6">
                   <div className="flex items-center gap-3 mb-4">
                     <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center text-lg">💳</div>
@@ -563,9 +552,6 @@ function AdminOrderRow({ order, onUpdate }: { order: Order; onUpdate: (id: strin
   );
 }
 
-// ============================================================================
-// CHANGE 6 — PICKUP STATION MANAGEMENT
-// ============================================================================
 function PickupStationManagement({
   stations, onAdd, onUpdate, onDelete, onToast,
 }: {

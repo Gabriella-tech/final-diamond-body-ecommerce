@@ -1,9 +1,15 @@
+// ============================================================================
+// Diamond Body — API Client (Production Hardened)
+// ============================================================================
+
 const PROD_FALLBACK = "https://the-diamond-body-backend.onrender.com/api/v1";
 
 const API_BASE =
   (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_API_URL) ||
   PROD_FALLBACK ||
   "http://localhost:5000/api/v1";
+
+console.log("[API] Using backend:", API_BASE);
 
 type ApiResponse<T = unknown> = {
   success: boolean;
@@ -25,6 +31,8 @@ class ApiError extends Error {
   }
 }
 
+// ---------- token storage ----------
+
 let accessToken: string | null = localStorage.getItem("db_access_token");
 let refreshToken: string | null = localStorage.getItem("db_refresh_token");
 
@@ -43,6 +51,8 @@ export function clearTokens() {
 }
 
 export function getAccessToken() { return accessToken; }
+
+// ---------- public fetch ----------
 
 export async function apiFetch<T = unknown>(
   path: string,
@@ -78,7 +88,6 @@ export async function apiFetch<T = unknown>(
         headers["Authorization"] = `Bearer ${accessToken}`;
         res = await fetch(fullUrl, { ...options, headers });
       } else {
-        // If refresh fails, clear tokens and force re-login
         clearTokens();
         throw new ApiError(401, "Session expired. Please log in again.", undefined, false);
       }
@@ -95,13 +104,15 @@ export async function apiFetch<T = unknown>(
     throw new ApiError(res.status, "Invalid response from server.", undefined, false);
   }
 
-    if (!json.success) {
-    // If the token is invalid or expired, clear it so the user is forced to log in again.
+  if (!json.success) {
     if (res.status === 401) {
       clearTokens();
     }
     throw new ApiError(res.status, json.message || "Request failed", (json as any).details, false);
   }
+
+  return json.data;
+}
 
 export async function apiUpload<T = unknown>(path: string, formData: FormData): Promise<T> {
   const headers: Record<string, string> = {};
@@ -127,5 +138,4 @@ export const api = {
     apiFetch<T>(path, { method: "PATCH", body: body ? JSON.stringify(body) : undefined }),
   delete: <T>(path: string) => apiFetch<T>(path, { method: "DELETE" }),
   upload: <T>(path: string, fd: FormData) => apiUpload<T>(path, fd),
-  baseUrl: API_BASE,
 };
