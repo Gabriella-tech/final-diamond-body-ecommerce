@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Container, Button, Badge } from "../components/UI";
 import { useApp, formatNGN, type Order } from "../store/store";
 import { PRODUCTS } from "../data/products";
 import { parseRoute, useRouter, Link } from "../router";
-import { IconLogout, IconUpload, IconTruck, IconHeart, IconUser, IconMapPin } from "../components/Icons";
+import { IconLogout, IconTruck, IconHeart, IconUser, IconStar } from "../components/Icons";
 import { clearTokens } from "../api/client";
 
 type Tab = "overview" | "orders" | "wishlist" | "addresses" | "profile";
@@ -17,55 +17,41 @@ const statusTone = (s: string): "success" | "warning" | "info" | "default" | "er
 };
 
 export function UserDashboard() {
-  const { user, setUser, wishlist, toggleWishlist, updateOrder, toast, addReview, orders } = useApp();
+  const { user, setUser, wishlist, toggleWishlist, toast } = useApp();
   const { path, navigate } = useRouter();
   const { params } = parseRoute(path);
   const [tab, setTab] = useState<Tab>((params.get("tab") as Tab) || "overview");
 
-  // Sync orders from backend on mount — so customer sees orders from any device
-  useEffect(() => { refreshOrders(); }, []);
-
-  if (!user) {
-    return (
-      <Container className="py-24 text-center">
-        <h2 className="font-display text-3xl font-bold mb-4">Please sign in</h2>
-        <Link to="/login"><Button>Login</Button></Link>
-      </Container>
-    );
-  }
-
   // =====================================================================
-// Direct API fetch — pulls this user's orders from PostgreSQL
-// This ensures the user sees their orders on ANY device.
-// =====================================================================
-const [apiOrders, setApiOrders] = useState<Order[]>([]);
+  // Direct API fetch — pulls this user's orders from PostgreSQL
+  // This ensures the user sees their orders on ANY device.
+  // =====================================================================
+  const [apiOrders, setApiOrders] = useState<Order[]>([]);
 
-useEffect(() => {
-  const fetchMy = async () => {
-    try {
-      const base = "https://the-diamond-body-backend.onrender.com/api/v1";
-      const tok = localStorage.getItem("db_access_token");
-      const headers: Record<string, string> = {};
-      if (tok) headers["Authorization"] = `Bearer ${tok}`;
-      const res = await fetch(`${base}/members/me/orders?limit=200`, { headers });
-      if (res.ok) {
-        const json = await res.json();
-        setApiOrders((json.data?.items || json.data || []).map((o: any) => ({
-          id: o.id, date: o.createdAt, customerName: o.customerName,
-          items: (o.items || []).map((it: any) => ({ productId: it.productId || "", name: it.name, price: Number(it.price), quantity: it.quantity })),
-          total: Number(o.total), status: o.status, paymentStatus: o.paymentStatus === "PAID" ? "Paid" : "Unpaid",
-          deliveryMethod: o.deliveryMethod === "PICKUP_STATION" ? "Pickup Station" : "Home Delivery",
-        } as Order)));
-      }
-    } catch { /* unreachable */ }
-  };
-  fetchMy();
-}, []);
+  useEffect(() => {
+    const fetchMy = async () => {
+      try {
+        const base = "https://the-diamond-body-backend.onrender.com/api/v1";
+        const tok = localStorage.getItem("db_access_token");
+        const headers: Record<string, string> = {};
+        if (tok) headers["Authorization"] = `Bearer ${tok}`;
+        const res = await fetch(`${base}/members/me/orders?limit=200`, { headers });
+        if (res.ok) {
+          const json = await res.json();
+          setApiOrders((json.data?.items || json.data || []).map((o: any) => ({
+            id: o.id, date: o.createdAt, customerName: o.customerName,
+            items: (o.items || []).map((it: any) => ({ productId: it.productId || "", name: it.name, price: Number(it.price), quantity: it.quantity })),
+            total: Number(o.total), status: o.status, paymentStatus: o.paymentStatus === "PAID" ? "Paid" : "Unpaid",
+            deliveryMethod: o.deliveryMethod === "PICKUP_STATION" ? "Pickup Station" : "Home Delivery",
+          } as Order)));
+        }
+      } catch { /* unreachable */ }
+    };
+    fetchMy();
+  }, []);
 
   // Only show orders fetched from the backend API.
-  // This ensures the user sees their orders on ANY device.
   const myOrders = apiOrders;
-  
   const myWishlist = PRODUCTS.filter((p) => wishlist.includes(p.id));
 
   const tabs: { k: Tab; l: string }[] = [
@@ -76,13 +62,22 @@ useEffect(() => {
     { k: "profile", l: "Profile" },
   ];
 
+  if (!user) {
+    return (
+      <Container className="py-24 text-center">
+        <h2 className="font-display text-3xl font-bold mb-4">Please sign in</h2>
+        <Link to="/login"><Button>Login</Button></Link>
+      </Container>
+    );
+  }
+
   return (
     <div className="bg-[#F5F5F5] min-h-screen">
       <Container className="py-10">
         <div className="bg-gradient-to-r from-[#4A0E16] to-[#6b1722] rounded-3xl p-6 sm:p-8 text-white mb-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
             <div>
-              <div className="text-white/70 text-xs uppercase tracking-wider mb-1">My Dashboard</div>
+              <div className="text-xs uppercase tracking-wider text-white/70 mb-1">My Dashboard</div>
               <h1 className="font-display text-2xl sm:text-3xl font-bold">Welcome, {user.name}</h1>
               <p className="text-white/80 text-sm mt-1">{user.email}</p>
             </div>
@@ -116,11 +111,6 @@ useEffect(() => {
                 <StatCard label="Total Orders" value={myOrders.length} icon={<IconTruck/>}/>
                 <StatCard label="Wishlist Items" value={myWishlist.length} icon={<IconHeart/>}/>
                 <StatCard label="Total Spent" value={formatNGN(myOrders.reduce((s, o) => s + o.total, 0))} icon={<IconUser/>}/>
-                <div className="sm:col-span-3 bg-white rounded-2xl p-6 border border-gray-100">
-                  <h3 className="font-display text-xl font-bold mb-4">Recent Orders</h3>
-                  {myOrders.slice(0, 3).map((o) => <OrderRow key={o.id} order={o}/>)}
-                  {myOrders.length === 0 && <p className="text-gray-500 text-sm">No orders yet. <Link to="/shop" className="text-[#4A0E16] font-semibold">Start shopping →</Link></p>}
-                </div>
               </div>
             )}
 
@@ -132,14 +122,14 @@ useEffect(() => {
                     <p className="text-gray-500 text-sm">You haven't placed any orders yet.</p>
                   ) : (
                     myOrders.map((o) => (
-                      <OrderRow key={o.id} order={o} expandable onUploadProof={(file) => {
-                        const reader = new FileReader();
-                        reader.onload = () => {
-                          updateOrder(o.id, { bankProofUrl: reader.result as string, paymentStatus: "Awaiting Verification" });
-                          toast({ type: "success", message: "Proof uploaded for verification" });
-                        };
-                        reader.readAsDataURL(file);
-                      }}/>
+                      <OrderRow key={o.id} order={o} onReview={() => {
+                        if (o.items.length > 0) {
+                          const product = PRODUCTS.find(p => p.id === o.items[0].productId);
+                          if (product) {
+                            navigate(`/product/${product.slug}`);
+                          }
+                        }
+                      }} />
                     ))
                   )}
                 </div>
@@ -173,28 +163,7 @@ useEffect(() => {
             {tab === "addresses" && (
               <div className="bg-white rounded-2xl p-6 border border-gray-100">
                 <h3 className="font-display text-xl font-bold mb-4">Saved Addresses</h3>
-                {user.addresses.length === 0 ? (
-                  <div className="text-center py-12">
-                    <IconMapPin size={36} className="mx-auto text-gray-300 mb-3"/>
-                    <p className="text-gray-500 text-sm mb-4">No saved addresses yet.</p>
-                    <Button onClick={() => {
-                      const addr = { id: "a-" + Math.random().toString(36).slice(2, 6), label: "Home", fullName: user.name, phone: user.phone || "", street: "Add your street", city: "Lagos", state: "Lagos", country: "Nigeria", isDefault: true };
-                      setUser({ ...user, addresses: [addr] });
-                      toast({ type: "success", message: "Sample address added — edit it from your profile" });
-                    }}>Add Address</Button>
-                  </div>
-                ) : (
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    {user.addresses.map((a) => (
-                      <div key={a.id} className="border border-gray-100 rounded-xl p-4">
-                        <div className="font-semibold">{a.label}</div>
-                        <div className="text-sm text-gray-600 mt-1">{a.fullName}</div>
-                        <div className="text-sm text-gray-600">{a.street}, {a.city}, {a.state}</div>
-                        <div className="text-sm text-gray-600">{a.phone}</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <p className="text-gray-500 text-sm">Address management is available in the Profile tab.</p>
               </div>
             )}
 
@@ -205,21 +174,8 @@ useEffect(() => {
                   <ProfileField label="Name" value={user.name} onChange={(v) => setUser({...user, name: v})}/>
                   <ProfileField label="Email" value={user.email} onChange={(v) => setUser({...user, email: v})}/>
                   <ProfileField label="Phone" value={user.phone || ""} onChange={(v) => setUser({...user, phone: v})}/>
-                  <div>
-                    <span className="block text-xs font-semibold text-gray-700 mb-1">Role</span>
-                    <div className="px-4 py-2.5 bg-[#F5F5F5] rounded-xl text-sm capitalize">{user.role.replace("_", " ")}</div>
-                  </div>
                 </div>
                 <Button className="mt-6" onClick={() => toast({ type: "success", message: "Profile updated" })}>Save Changes</Button>
-
-                <div className="border-t border-gray-100 mt-8 pt-6">
-                  <h4 className="font-semibold mb-3">Change Password</h4>
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <input type="password" placeholder="Current password" className="px-4 py-2.5 rounded-xl border border-gray-200 text-sm"/>
-                    <input type="password" placeholder="New password" className="px-4 py-2.5 rounded-xl border border-gray-200 text-sm"/>
-                  </div>
-                  <Button variant="outline" className="mt-4" onClick={() => toast({ type: "success", message: "Password updated" })}>Update Password</Button>
-                </div>
               </div>
             )}
           </main>
@@ -250,11 +206,10 @@ function ProfileField({ label, value, onChange }: { label: string; value: string
   );
 }
 
-function OrderRow({ order, expandable, onUploadProof }: { order: any; expandable?: boolean; onUploadProof?: (f: File) => void }) {
-  const [open, setOpen] = useState(false);
+function OrderRow({ order, onReview }: { order: Order; onReview: () => void }) {
   return (
     <div className="border-b border-gray-100 last:border-0 py-3">
-      <div className={`flex flex-col sm:flex-row sm:items-center gap-3 ${expandable ? "cursor-pointer" : ""}`} onClick={() => expandable && setOpen(!open)}>
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <div className="flex-1">
           <div className="font-semibold text-sm">{order.id}</div>
           <div className="text-xs text-gray-500">{new Date(order.date).toLocaleString()} • {order.items.length} item(s)</div>
@@ -263,34 +218,13 @@ function OrderRow({ order, expandable, onUploadProof }: { order: any; expandable
           <Badge tone={statusTone(order.paymentStatus)}>{order.paymentStatus}</Badge>
           <Badge tone={statusTone(order.status)}>{order.status}</Badge>
           <div className="font-bold text-[#4A0E16]">{formatNGN(order.total)}</div>
+          {order.status === "Delivered" && (
+            <Button size="sm" variant="outline" onClick={onReview}>
+              <IconStar size={14} /> Review
+            </Button>
+          )}
         </div>
       </div>
-      {expandable && open && (
-        <div className="mt-3 p-4 bg-[#F5F5F5] rounded-xl space-y-2">
-          {order.items.map((it: any, i: number) => (
-            <div key={i} className="flex justify-between text-sm">
-              <span>{it.name} × {it.quantity}</span>
-              <span className="font-semibold">{formatNGN(it.price * it.quantity)}</span>
-            </div>
-          ))}
-          <div className="text-xs text-gray-600 pt-2 border-t border-gray-200">
-            <strong>Ship to:</strong> {order.address.street}, {order.address.city}, {order.address.state}
-          </div>
-          {order.paymentMethod === "Bank Transfer" && order.paymentStatus !== "Paid" && (
-            <label className="block mt-3 cursor-pointer border-2 border-dashed border-[#4A0E16] rounded-xl p-3 hover:bg-white transition text-center">
-              <IconUpload size={18} className="inline mr-2"/>
-              <span className="text-sm font-semibold text-[#4A0E16]">Upload Payment Proof</span>
-              <input type="file" accept="image/*" className="hidden" onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f && onUploadProof) onUploadProof(f);
-              }}/>
-            </label>
-          )}
-          {order.trackingNumber && (
-            <div className="text-sm bg-white p-2 rounded-lg"><strong>Tracking:</strong> {order.trackingNumber}</div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
