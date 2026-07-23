@@ -3,7 +3,7 @@
 // ============================================================================
 // DIAMOND BODY — DATABASE SEED
 // Populates: 1 Super Admin, 1 Admin, 8 Nations + 8 Leaders, 7 Categories,
-// 11 Products, 5 Pickup Stations. Idempotent (safe to run multiple times).
+// 16 Products, 5 Pickup Stations. Idempotent (safe to run multiple times).
 // ============================================================================
 
 const bcrypt = require("bcryptjs");
@@ -33,6 +33,7 @@ const CATEGORIES = [
   { slug: "detox",         name: "Detox & Cleanse",   icon: "🌿" },
   { slug: "digestion",     name: "Digestion",         icon: "🍃" },
   { slug: "energy",        name: "Energy & Vitality", icon: "⚡" },
+  { slug: "coffee",        name: "Coffee & Wellness", icon: "☕" },
   { slug: "circulation",   name: "Circulation",       icon: "❤️" },
   { slug: "immune",        name: "Immune Support",    icon: "🛡️" },
   { slug: "family",        name: "Family Wellness",   icon: "👨‍👩‍👧" },
@@ -40,25 +41,34 @@ const CATEGORIES = [
 ];
 
 const PRODUCTS = [
-  { slug: "rp-c247",           name: "RP C247",           tagline: "24/7 Internal Cleanse",        description: "Premium daily detoxifier for gut health.",       price: 15000, comparePrice: 18000, inventory: 124, category: "detox",         featured: true,  bestSeller: true,  badge: "Best Seller", image: "/images/products/rp-c247.jpg" },
-  { slug: "rp-complete",       name: "RP Complete",       tagline: "Complete Daily Wellness",      description: "All-in-one multivitamin complex.",                price: 22000, comparePrice: 26000, inventory: 88,  category: "energy",        featured: true,  bestSeller: true,  badge: "Top Rated",   image: "/images/products/rp-complete.jpg" },
-  { slug: "rp-choleduz",       name: "RP Choleduz",       tagline: "Cholesterol & Heart Support",  description: "Supports cardiovascular wellness.",               price: 19500, inventory: 67,  category: "circulation",                                                                image: "/images/products/rp-choleduz.jpg" },
-  { slug: "rp-restorlyf",      name: "RP Restorlyf",      tagline: "Cellular Restoration",         description: "Cellular restoration and anti-aging support.",    price: 27500, comparePrice: 32000, inventory: 45,  category: "energy",        featured: true,                    badge: "Premium",    image: "/images/products/rp-restorlyf.jpg" },
-  { slug: "rp-burn-slim",      name: "RP Burn Slim",      tagline: "Healthy Weight Management",    description: "Natural metabolism support.",                     price: 18000, inventory: 102, category: "energy",                          bestSeller: true,                     image: "/images/products/rp-burn-slim.jpg" },
-  { slug: "rp-kiddie-247",     name: "RP Kiddie 24/7",    tagline: "Children's Daily Wellness",    description: "Gentle daily nutrition for kids.",                price: 13500, inventory: 156, category: "family",                                                                     image: "/images/products/rp-kiddie-247.jpg" },
-  { slug: "nc-tooth-paste",    name: "NC Tooth Paste",    tagline: "Natural Whitening Care",       description: "Fluoride-free natural whitening toothpaste.",     price: 6500,  inventory: 230, category: "family",                                                                     image: "/images/products/nc-tooth-paste.jpg" },
-  { slug: "ener-chi-diffuser", name: "Ener-Chi Diffuser", tagline: "Aromatherapy Wellness",        description: "Premium ultrasonic essential oil diffuser.",      price: 32000, inventory: 38,  category: "wellness-tech", featured: true,                    badge: "New",        image: "/images/products/ener-chi-diffuser.jpg" },
-  { slug: "vida-maxx",         name: "Vida Maxx",         tagline: "Maximum Life Energy",          description: "Powerful adaptogenic blend for sustained energy.", price: 24500, inventory: 71,  category: "energy",                          bestSeller: true,                     image: "/images/products/vida-maxx.jpg" },
-  { slug: "ener-chi-bracelet", name: "Ener-Chi Bracelet", tagline: "Wearable Wellness",            description: "Magnetic therapy bracelet for circulation.",      price: 15500, inventory: 95,  category: "wellness-tech",                                                              image: "/images/products/ener-chi-bracelet.jpg" },
-  { slug: "ultra-h2",          name: "Ultra H2",          tagline: "Hydrogen-Rich Water Bottle",   description: "Molecular hydrogen water generator bottle.",      price: 45000, comparePrice: 55000, inventory: 22,  category: "wellness-tech", featured: true,                    badge: "Premium",    image: "/images/products/ultra-h2.jpg" },
+  // Liven Products
+  { slug: "liven-latte",       name: "Liven Latte",       tagline: "Creamy Premium Latte",        description: "Livén Latte combines premium Arabica coffee with a smooth, creamy milk blend to create a rich café-style latte.", price: 21500, comparePrice: 25500, inventory: 85, category: "coffee",        featured: true,  bestSeller: true,  badge: "Popular",    image: "/images/liven-latte.jpeg" },
+  { slug: "liven-sugar-free",  name: "Livén Sugar-Free Original", tagline: "Sugar-Free Alkaline Coffee",  description: "Livén Sugar-Free Original is specially formulated for people who prefer coffee without added sugar.", price: 21500, comparePrice: 25500, inventory: 95, category: "coffee",        featured: true,  bestSeller: true,  badge: "Healthy Choice", image: "/images/liven-sugar-free.jpeg" },
+  { slug: "liven-original",    name: "Livén Original",    tagline: "Classic Alkaline Coffee",     description: "Livén Original is a premium alkaline coffee made from carefully selected Arabica coffee beans.", price: 21500, comparePrice: 25500, inventory: 100, category: "coffee",        featured: true,  bestSeller: true,  badge: "Best Seller",  image: "/images/liven-original.jpeg" },
+  { slug: "liven-cappuccino",  name: "Livén Cappuccino",  tagline: "Rich & Creamy Cappuccino",    description: "Livén Cappuccino blends premium Arabica coffee with a creamy cappuccino mix, delivering a rich aroma and velvety texture.", price: 21500, comparePrice: 25500, inventory: 90, category: "coffee",        featured: true,  bestSeller: true,  badge: "Top Rated",    image: "/images/liven-cappuccino.jpeg" },
+  // RP Products
+  { slug: "rp-c247",           name: "RP C247",           tagline: "24/7 Internal Cleanse",        description: "Premium daily detoxifier for gut health.",       price: 18750, comparePrice: 22000, inventory: 124, category: "detox",         featured: true,  bestSeller: true,  badge: "Best Seller", image: "/images/rp-c247.jpg" },
+  { slug: "rp-complete",       name: "RP Complete",       tagline: "Complete Daily Wellness",      description: "All-in-one multivitamin complex.",                price: 17700, comparePrice: 21400, inventory: 88,  category: "energy",        featured: true,  bestSeller: true,  badge: "Top Rated",   image: "/images/rp-complete.jpeg" },
+  { slug: "rp-choleduz",       name: "RP Choleduz",       tagline: "Daily Eyes Nourishment",       description: "Supports cardiovascular wellness.",               price: 18900, inventory: 67,  category: "circulation",                                                                image: "/images/rp-choledux.jpeg" },
+  { slug: "rp-restorlyf",      name: "RP Restorlyf",      tagline: "Healthy Aging Formula",        description: "Cellular restoration and anti-aging support.",    price: 23100, comparePrice: 28100, inventory: 45,  category: "energy",        featured: true,                    badge: "Premium",    image: "/images/rp-restorlyf.jpeg" },
+  { slug: "rp-burn-slim",      name: "RP Burn Slim",      tagline: "Weight Loss Support",          description: "Natural metabolism support.",                     price: 17700, inventory: 102, category: "energy",                          bestSeller: true,                     image: "/images/rp-burn-slim.jpeg" },
+  { slug: "rp-kiddie-247",     name: "RP Kiddie 24/7",    tagline: "Children Multivitamins with DHA", description: "Gentle daily nutrition for kids.",                price: 15900, inventory: 156, category: "family",                                                                     image: "/images/rp-kiddie-247.jpeg" },
+  { slug: "rp-careleaf",       name: "RP Careleaf",       tagline: "Herbal Pain Relief Patch",     description: "Provides fast, natural relief from body aches and pains.", price: 18600, comparePrice: 20600, inventory: 120, category: "wellness-tech", bestSeller: true,  badge: "Pain Relief", image: "/images/rp-careleaf.jpg" },
+  // Other Products
+  { slug: "nc-tooth-paste",    name: "NC Tooth Paste",    tagline: "Fresh Breath Daily",           description: "Fluoride-free natural whitening toothpaste.",     price: 10800, inventory: 230, category: "family",                                                                     image: "/images/nc-tooth-paste.jpg" },
+  { slug: "ener-chi-diffuser", name: "Ener-Chi Diffuser", tagline: "EMR Protection",               description: "Premium ultrasonic essential oil diffuser.",      price: 16200, inventory: 38,  category: "wellness-tech", featured: true,                    badge: "New",        image: "/images/ener-chi-diffuser.jpg" },
+  { slug: "vida-maxx",         name: "Vida Maxx",         tagline: "Heart Health Formula",         description: "Maintains cardiovascular wellness.",              price: 58000, inventory: 71,  category: "circulation",                          bestSeller: true,                     image: "/images/vida-maxx.jpg" },
+  { slug: "ener-chi-bracelet", name: "Ener-Chi Bracelet", tagline: "Wearable Wellness",            description: "Magnetic therapy bracelet for circulation.",      price: 635100, inventory: 95,  category: "wellness-tech",                                                              image: "/images/ener-chi bracelet.jpeg" },
+  { slug: "ultra-h2",          name: "Ultra H2",          tagline: "Hydrogen-Rich Water Bottle",   description: "Molecular hydrogen water generator bottle.",      price: 1551900, comparePrice: 1751900, inventory: 22,  category: "wellness-tech", featured: true,                    badge: "Premium",    image: "/images/ultra-h2.jpeg" },
+  { slug: "mychoco",           name: "MyChoco",           tagline: "Alkaline Chocolate Drink",     description: "MyChoco Alkaline Chocolate Drink is a nutrient-dense beverage.", price: 22000, inventory: 50, category: "energy",                                                                     image: "/images/mychocco.jpeg" },
 ];
 
 const PICKUP_STATIONS = [
-  { code: "PKS001", name: "Diamond Body — Lekki HQ",       address: "12 Admiralty Way, Lekki Phase 1", city: "Lekki",         state: "Lagos", phone: "+234 800 1000 001", hours: "Mon–Sat, 9am–6pm" },
-  { code: "PKS002", name: "Diamond Body — Ikeja",          address: "9 Allen Avenue, Ikeja",           city: "Ikeja",         state: "Lagos", phone: "+234 800 1000 002", hours: "Mon–Sat, 9am–6pm" },
-  { code: "PKS003", name: "Diamond Body — Abuja Central",  address: "Plot 5, Wuse II",                 city: "Abuja",         state: "FCT",   phone: "+234 800 1000 003", hours: "Mon–Sat, 9am–6pm" },
-  { code: "PKS004", name: "Diamond Body — Port Harcourt",  address: "22 Aba Road",                     city: "Port Harcourt", state: "Rivers", phone: "+234 800 1000 004", hours: "Mon–Sat, 9am–6pm" },
-  { code: "PKS005", name: "Diamond Body — Ibadan",         address: "10 Bodija Street",                city: "Ibadan",        state: "Oyo",   phone: "+234 800 1000 005", hours: "Mon–Sat, 9am–6pm" },
+  { code: "PKS001", name: "Diamond Body — Lagos",       address: "Braisas Mall, off Adiralty Way  Lekki Phase 1",                city: "Lekki",            state: "Lagos", phone: "+234 702 500 8596", hours: "Mon–Sat, 9am–6pm" },
+  { code: "PKS003", name: "Diamond Body — Abuja",       address: "No 306b Bahamas Plaza, 1080 Joseph Gwomwalk Street",           city: "Abuja",            state: "FCT",   phone: "+234 702 500 8596", hours: "Mon–Sat, 9am–6pm" },
+  { code: "PKS002", name: "Diamond Body — Abuja Central",  address: "Plot 5, Wuse II",                                           city: "Abuja",            state: "FCT",   phone: "+234 800 1000 003", hours: "Mon–Sat, 9am–6pm" },
+  { code: "PKS004", name: "Diamond Body — Port Harcourt",  address: "22 Aba Road",                                               city: "Port Harcourt",    state: "Rivers",phone: "+234 800 1000 004", hours: "Mon–Sat, 9am–6pm" },
+  { code: "PKS005", name: "Diamond Body — Ibadan",         address: "10 Bodija Street",                                          city: "Ibadan",           state: "Oyo",   phone: "+234 800 1000 005", hours: "Mon–Sat, 9am–6pm" },
 ];
 
 // ---------- Runner ----------
